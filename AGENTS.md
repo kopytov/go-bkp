@@ -92,10 +92,10 @@ This is the core of the program; most real defects will be here.
   the destination.
 - The parent closes its copies of pipe ends after `Start`; a pipe end left
   open in the parent means the reader never sees EOF and the run hangs.
-- Each profile's processes run in a process group of their own. On a stage
-  failure, a timeout or `SIGTERM`/`SIGINT` to `bkp`, the whole group is
-  killed and every process is waited for: no zombies, no orphans still
-  writing.
+- Each stage runs in a process group of its own, killed when the stage
+  exits. On a stage failure, a timeout or `SIGTERM`/`SIGINT` to `bkp`,
+  every stage's group is killed and every process is waited for: no
+  zombies, no orphans still writing.
 - Every stage's exit status is checked, not just the last one's. An archive
   counts as written only when all stages exited 0; a partial archive is never
   left looking like a good one.

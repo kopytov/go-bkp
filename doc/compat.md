@@ -122,6 +122,20 @@ attempt: its processes are killed, cleanup runs, the temporary archive is
 deleted, the remaining profiles and configs are skipped and the exit status
 is non-zero.
 
+## Stage process groups
+
+Raku sends `SIGTERM` to the stage process only and leaves whatever it
+started running. Here each stage runs in a process group of its own. When
+a stage exits, its group is killed with `SIGKILL`, so nothing it left in the
+background keeps writing or holds the next stage's input open, which would
+hang the run. When a stage fails or the attempt is cancelled, the groups of
+the stages still running get `SIGTERM` and, 5 seconds later, `SIGKILL`.
+
+A stage is thus not in the terminal's foreground group: run by hand, a
+stage that reads the terminal itself, such as `ssh` asking about a host
+key, is stopped until the attempt is cancelled. Runs from cron have no
+terminal.
+
 ## Cleanup after every attempt
 
 Raku runs the source's cleanup and `umount` only after a successful send.
