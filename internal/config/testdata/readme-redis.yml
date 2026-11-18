@@ -1,0 +1,9 @@
+# README "class: redis". dst is not part of the example.
+src:
+  class: redis
+  dump: /path/to/db/dump
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

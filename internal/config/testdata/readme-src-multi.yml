@@ -1,0 +1,15 @@
+# README "src": several sources. dst is not part of the example.
+src:
+  site:
+    class: tar
+    cwd: /var/www
+    files:
+      htdocs
+  database:
+    class: mysql
+    dbs: wordpress
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

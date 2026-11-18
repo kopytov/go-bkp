@@ -1,0 +1,14 @@
+# README "class: ploop", a class that is not ported. dst is not part of the
+# example.
+src:
+  class: ploop
+  ctid: 01234567-89ab-cdef-0123-456789abcdef
+  exclude:
+  - /var/tmp
+  - /var/cache
+  - /var/log/nginx
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

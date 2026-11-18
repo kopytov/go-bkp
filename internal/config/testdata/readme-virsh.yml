@@ -1,0 +1,16 @@
+# README "class: virsh", copied as is: the source names lack their colons,
+# so this is not valid YAML. dst is not part of the example.
+src:
+  VMname_disk1
+    class: virsh
+    vm: VMname
+    device: /var/lib/libvirt/images/VMname.qcow2
+  VMname_disk2
+    class: virsh
+    vm: VMname
+    device: /var/lib/libvirt/images/VMname_d2.qcow2
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

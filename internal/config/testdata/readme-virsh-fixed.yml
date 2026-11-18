@@ -1,0 +1,16 @@
+# README "class: virsh" with the colons the source names lack. dst is not
+# part of the example.
+src:
+  VMname_disk1:
+    class: virsh
+    vm: VMname
+    device: /var/lib/libvirt/images/VMname.qcow2
+  VMname_disk2:
+    class: virsh
+    vm: VMname
+    device: /var/lib/libvirt/images/VMname_d2.qcow2
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

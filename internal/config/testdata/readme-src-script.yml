@@ -1,0 +1,13 @@
+# README "src": sources from a script. dst is not part of the example.
+src:
+  script: mysql -se 'SHOW DATABASES'
+    | egrep -v '^(Database|(information|performance)_schema)$'
+  template: |
+    mysql-{{ item }}:
+      class: mysql
+      dbs: {{ item }}
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

@@ -1,0 +1,13 @@
+# README "crypt: class: openssl". src and dst are not part of the example.
+src:
+  class: tar
+  cwd: /var/www
+  files: htdocs
+crypt:
+  class: openssl
+  key: secret
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

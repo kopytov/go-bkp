@@ -1,0 +1,14 @@
+# README "class: tar". dst is not part of the example.
+src:
+  class: tar
+  cwd: /var/www
+  files:
+  - site1.com
+  - site2.com
+  exclude:
+  - site1.com/cache
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

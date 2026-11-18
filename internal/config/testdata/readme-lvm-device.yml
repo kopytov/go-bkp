@@ -1,0 +1,10 @@
+# README "class: lvm", a class that is not ported. dst is not part of the
+# example.
+src:
+  class: lvm
+  device: /dev/VolGroup00/LogVolume01
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

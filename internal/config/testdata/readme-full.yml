@@ -1,0 +1,22 @@
+# README: the opening example, two sources to FTP.
+src:
+  files:
+    class: tar
+    cwd: /var/www
+    files:
+      htdocs
+  database:
+    class: mysql
+    dbs: wordpress
+compress:
+  class: gzip
+dst:
+  class: ftp
+  hostname: backup.example.com
+  username: bkpuser
+  password: secret
+  path: /backups
+  plan:
+    m: 6
+    w: 3
+    d: 6

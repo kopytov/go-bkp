@@ -1,0 +1,15 @@
+# README "dst": the plan and no-rotate. src and the class are not part of the
+# example.
+src:
+  class: tar
+  cwd: /var/www
+  files: htdocs
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    y: 2
+    m: 6
+    w: 4
+    d: 6
+  no-rotate: true

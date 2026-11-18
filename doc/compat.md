@@ -71,6 +71,14 @@ meaning of the generated YAML, so it is a load error naming the line.
   positive entry. With a negative one, rotation deletes every archive of
   that period and then fails the attempt.
 - Class names are matched case-insensitively, as in Raku.
+- `dst.prefix` in a config with several sources is a load error. Raku
+  silently replaces it with each source's name, so the value written in the
+  config has no effect. With one source it still overrides the file name.
+- A key given twice in one mapping is a load error; Raku keeps the last one.
+- A source name or `dst.prefix` that contains a slash is a load error: it
+  starts archive names, and Raku would write such an archive outside the
+  destination directory. An empty one, `.` and `..` are refused too, as they
+  only make confusing names such as `..-2026-11-18-d.tar`.
 
 ## Archive names
 

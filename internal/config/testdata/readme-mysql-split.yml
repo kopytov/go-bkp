@@ -1,0 +1,13 @@
+# README "class: mysql": one dump per database. dst is not part of the example.
+src:
+  db1:
+    class: mysql
+    dbs: db1
+  db2:
+    class: mysql
+    dbs: db2
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

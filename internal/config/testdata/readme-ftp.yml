@@ -1,0 +1,15 @@
+# README "class: ftp". src and the plan are not part of the example.
+src:
+  class: tar
+  cwd: /var/www
+  files: htdocs
+dst:
+  class: ftp
+  hostname: backup.example.com
+  username: bkp
+  password: secret
+  port: 21
+  path: /backups
+  encoding: UTF-8
+  plan:
+    d: 7

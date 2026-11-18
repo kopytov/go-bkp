@@ -1,0 +1,13 @@
+# README "shape: class: pv". src and dst are not part of the example.
+src:
+  class: tar
+  cwd: /var/www
+  files: htdocs
+shape:
+  class: pv
+  rate-limit: 5m
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

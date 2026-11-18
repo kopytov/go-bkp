@@ -1,0 +1,11 @@
+# README "class: mysql". dst is not part of the example.
+src:
+  class: mysql
+  dbs:
+  - db1
+  - db2
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7

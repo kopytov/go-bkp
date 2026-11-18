@@ -1,0 +1,13 @@
+# README "class: local". src and the plan are not part of the example.
+src:
+  class: tar
+  cwd: /var/www
+  files: htdocs
+dst:
+  class: local
+  dir: /mnt/bkp/backups
+  mount:
+    point: /mnt/bkp
+    cmd: /usr/bin/sshfs bkp@backup.example.com:/srv/bkp /mnt/bkp
+  plan:
+    d: 7

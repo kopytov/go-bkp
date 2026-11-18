@@ -1,0 +1,10 @@
+# README "class: lvm" by SolusVM name, a class that is not ported. dst is not
+# part of the example.
+src:
+  class: lvm
+  vm: myVM
+dst:
+  class: local
+  dir: /srv/bkp
+  plan:
+    d: 7
