@@ -96,6 +96,8 @@ exits; if it holds the script's output open, the load fails.
   `bkp list`.
 - An entry without a value in a list such as `exclude: [a, ~]` is a load
   error; Raku drops it.
+- An empty `rate-limit` of `pv` is a load error; Raku passes it to `pv`,
+  which refuses it at every attempt.
 - A negative `procs` of `pigz` is a load error. Raku passes it to `pigz`,
   which refuses it at every attempt. `procs: 0` still leaves the number of
   threads to `pigz`.
@@ -178,7 +180,15 @@ world-readable. Here archives, and files `bkp download` writes, are created
 
 Raku passes the key as `-k <key>`, visible to every user in `ps`. Here it is
 passed as `-pass fd:3`. The encrypted format is the same: archives decrypt
-with `openssl enc -d -k <key>` as before.
+with `openssl enc -d -<cipher> -k <key>` as before. (The command in the
+Raku README lacks `-<cipher>`, and without it `openssl` copies the data
+undecrypted.)
+
+`openssl` reads one line of at most 1023 bytes from the descriptor, so a
+key that contains a line break or a NUL byte, or is longer than 1023
+bytes, is a load error; Raku passes it in argv, where only a NUL byte
+fails. An empty key is a load error too: Raku encrypts with an empty
+password, which protects nothing.
 
 ## FTP
 
