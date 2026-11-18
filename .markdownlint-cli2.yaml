@@ -1,0 +1,5 @@
+config:
+  MD041:
+    front_matter_title: "^\\s*name\\s*:"
+ignores:
+  - dist/**

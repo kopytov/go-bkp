@@ -25,7 +25,7 @@ tools a config names.
 ## Commands
 
 ```bash
-mise install                  # Go and golangci-lint at the pinned versions
+mise install                  # Go and the lint tools at the pinned versions
 go build ./cmd/bkp
 go test -race ./...
 go test -race ./internal/dst -run TestRotate   # one package, one test
@@ -55,7 +55,8 @@ scripts/build.sh              # static release binaries into dist/
   linter name and the reason on the same line.
 - Standard library first. The only third-party module approved so far is
   `go.yaml.in/yaml/v3`. Any other one goes into the plan with what it replaces
-  and waits for the operator's approval. The CLI is built on `flag`.
+  and waits for the operator's approval; once approved, it is added to the
+  `depguard` allow list in `.golangci.yml`. The CLI is built on `flag`.
 - `CGO_ENABLED=0` always. Signals and process groups go through `syscall`.
 - Errors are returned, not panicked, and wrapped with `fmt.Errorf("…: %w")`
   carrying the profile and stage they come from. Messages are lowercase,
