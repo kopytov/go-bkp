@@ -61,6 +61,11 @@ meaning of the generated YAML, so it is a load error naming the line.
 - Fields that hold a command (`cmd`, `mount.cmd`) must be YAML lists. Raku
   turns a string into a single argv element with spaces inside, which never
   runs; here it is a load error that says to write a list.
+- A key written without a value (`cmd:`, `files: ~`) is a load error for
+  attributes whose value is checked: lists, commands, paths, `plan`. Raku
+  passes an undefined value on and fails later, or not at all. A `plan`
+  entry without a value still counts as 0, and a quoted count such as
+  `d: "6"` is accepted, as in Raku.
 - `dst.plan` entries must not be negative and at least one must be
   positive. Raku builds an archive name with an empty period without a
   positive entry. With a negative one, rotation deletes every archive of
