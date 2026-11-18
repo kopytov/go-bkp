@@ -169,6 +169,16 @@ func find(n *yaml.Node, key string) *yaml.Node {
 	return nil
 }
 
+// has reports whether flattened mapping n has key, with a value or not.
+func has(n *yaml.Node, key string) bool {
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		if n.Content[i].Value == key {
+			return true
+		}
+	}
+	return false
+}
+
 // take removes key from flattened mapping n and returns its value, or nil
 // when it is missing or has no value.
 func take(n *yaml.Node, key string) *yaml.Node {

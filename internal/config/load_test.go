@@ -117,7 +117,7 @@ func summarize(ps []Profile) []summary {
 
 func checkLoad(t *testing.T, path string, want []summary, wantErr string) {
 	t.Helper()
-	ps, err := Load(path, testClasses())
+	ps, err := Load(t.Context(), path, testClasses())
 	if wantErr != "" {
 		if err == nil || !strings.Contains(err.Error(), wantErr) {
 			t.Fatalf("err = %v, want it to contain %q", err, wantErr)
@@ -330,7 +330,7 @@ func tar(name, prefix string) summary {
 func TestLoadPost(t *testing.T) {
 	t.Parallel()
 	path := writeConfig(t, "x.yml", "src:\n  a: {class: tar}\n  b: {class: tar}\n"+dstLocal+"post: systemctl reload x\n")
-	ps, err := Load(path, testClasses())
+	ps, err := Load(t.Context(), path, testClasses())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func TestLoadIndependentProfiles(t *testing.T) {
 	t.Parallel()
 	path := writeConfig(t, "x.yml", "src:\n  a: {class: tar}\n  b: {class: tar}\n"+
 		"compress: &c {class: gzip, level: 9}\ncrypt: {<<: *c, class: openssl}\n"+dstLocal+"  plan: {d: 7}\n")
-	ps, err := Load(path, testClasses())
+	ps, err := Load(t.Context(), path, testClasses())
 	if err != nil {
 		t.Fatal(err)
 	}

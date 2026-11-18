@@ -52,7 +52,16 @@ the status and the script's stderr, and so is empty output.
 
 Each output line replaces `{{ item }}` in the template as text, as in Raku,
 but a line may hold only `A-Z a-z 0-9 . _ -`. Anything else would change the
-meaning of the generated YAML, so it is a load error naming the line.
+meaning of the generated YAML, so it is a load error naming the line. That
+includes an empty line: Raku stops reading at the first one and silently
+drops it and every line after it.
+
+A template that does not end in a line break gets one after each copy.
+Raku joins the copies as they are, which runs them into one line that does
+not parse.
+
+A process the script leaves in the background is killed once the script
+exits; if it holds the script's output open, the load fails.
 
 ## Config checking
 

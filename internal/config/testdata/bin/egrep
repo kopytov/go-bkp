@@ -1,0 +1,3 @@
+#!/bin/sh
+# egrep is obsolescent and warns on newer systems.
+exec grep -E "$@"

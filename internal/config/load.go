@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -40,21 +41,22 @@ var sections = []string{"src", "compress", "crypt", "shape", "dst", "post"}
 
 // Load reads the config at path and builds its profiles, sorted by name,
 // with the classes of classes. Any error in the config is returned here,
-// before anything runs.
+// before any stage runs; only a src.script is run, to list the sources.
 //
 // A src with a class key is the one source of the config; the profile is
 // named after the file and its dst.prefix defaults to that name. Otherwise
 // src maps names to sources, and each makes a profile of that name with its
-// own copy of the other sections and that name as dst.prefix.
-func Load(path string, classes Classes) ([]Profile, error) {
-	ps, err := load(path, classes)
+// own copy of the other sections and that name as dst.prefix. A src with a
+// script key gets that mapping from its script and template; see expand.
+func Load(ctx context.Context, path string, classes Classes) ([]Profile, error) {
+	ps, err := load(ctx, path, classes)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	return ps, nil
 }
 
-func load(path string, classes Classes) ([]Profile, error) {
+func load(ctx context.Context, path string, classes Classes) ([]Profile, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // G304: reading the config the operator named is the point
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -94,7 +96,11 @@ func load(path string, classes Classes) ([]Profile, error) {
 		return nil, fmt.Errorf("line %d: src: want a mapping, got %s", src.Line, given(src))
 	}
 
-	if find(src, "class") != nil {
+	if has(src, "script") {
+		if src, err = expand(ctx, src); err != nil {
+			return nil, fmt.Errorf("src: %w", err)
+		}
+	} else if find(src, "class") != nil {
 		if prefix := find(find(root, "dst"), "prefix"); prefix != nil {
 			v, err := scalar(prefix)
 			if err != nil {

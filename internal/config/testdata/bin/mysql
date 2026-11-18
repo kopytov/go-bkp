@@ -1,0 +1,4 @@
+#!/bin/sh
+# Fake mysql for the README script example: lists databases as
+# mysql -se 'SHOW DATABASES' does.
+printf '%s\n' Database information_schema performance_schema shop wordpress
