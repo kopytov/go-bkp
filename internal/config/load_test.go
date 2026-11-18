@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/kopytov/go-bkp/internal/pipeline"
 )
 
 // fake is a stand-in class: it keeps its class name and attributes, so tests
@@ -21,9 +23,17 @@ type fakeSrc struct{ fake }
 
 func (f *fakeSrc) Suffix() string { return f.class }
 
+func (f *fakeSrc) Spec() (pipeline.Spec, error) {
+	return pipeline.Spec{Stages: []pipeline.Stage{{Name: "src " + f.class, Argv: []string{f.class}}}}, nil
+}
+
 type fakeFilter struct{ fake }
 
 func (f *fakeFilter) Suffix(in string) string { return in + "." + f.class }
+
+func (f *fakeFilter) Stage() (pipeline.Stage, error) {
+	return pipeline.Stage{Name: f.class, Argv: []string{f.class}}, nil
+}
 
 type fakeDst struct{ fake }
 
@@ -57,6 +67,8 @@ type strictSrc struct {
 }
 
 func (*strictSrc) Suffix() string { return "strict" }
+
+func (*strictSrc) Spec() (pipeline.Spec, error) { return pipeline.Spec{}, nil }
 
 func testClasses() Classes {
 	filter := func(f fake) Filter { return &fakeFilter{f} }

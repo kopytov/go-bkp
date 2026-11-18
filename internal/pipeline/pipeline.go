@@ -80,6 +80,15 @@ type Spec struct {
 	Grace time.Duration
 }
 
+// Close closes In and the Files of every stage of a Spec that is not going
+// to be started.
+func (s Spec) Close() {
+	closeFiles(s.In)
+	for _, st := range s.Stages {
+		closeFiles(st.Files...)
+	}
+}
+
 // Pipeline is a started pipeline.
 type Pipeline struct {
 	spec   Spec

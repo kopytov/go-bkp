@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/kopytov/go-bkp/internal/pipeline"
 )
 
 // Profile is one archive a config makes: a source, the optional filters in
@@ -34,6 +36,35 @@ func (p Profile) Suffix() string {
 		}
 	}
 	return s
+}
+
+// Spec returns the pipeline of one attempt without its output: the source
+// and then the filters in the order the data passes them. On an error it
+// closes what the classes opened so far.
+func (p Profile) Spec() (pipeline.Spec, error) {
+	s, err := p.Src.Spec()
+	if err != nil {
+		return pipeline.Spec{}, fmt.Errorf("src: %w", err)
+	}
+	for _, f := range []struct {
+		section string
+		filter  Filter
+	}{
+		{"compress", p.Compress},
+		{"crypt", p.Crypt},
+		{"shape", p.Shape},
+	} {
+		if f.filter == nil {
+			continue
+		}
+		st, err := f.filter.Stage()
+		if err != nil {
+			s.Close()
+			return pipeline.Spec{}, fmt.Errorf("%s: %w", f.section, err)
+		}
+		s.Stages = append(s.Stages, st)
+	}
+	return s, nil
 }
 
 // sections are the keys allowed at the top of a config.

@@ -7,12 +7,18 @@ import (
 	"strings"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/kopytov/go-bkp/internal/pipeline"
 )
 
 // Source is a src class: the stage that produces the data of an archive.
 type Source interface {
 	// Suffix is the suffix of the data the source produces, such as "tar".
 	Suffix() string
+	// Spec returns the start of the pipeline of one attempt: the stage of
+	// the source, or a file read as it is in In. What it opens is closed
+	// by pipeline.Start or by Spec.Close; on an error it closes it itself.
+	Spec() (pipeline.Spec, error)
 }
 
 // Filter is a compress, crypt or shape class: a stage between the source
@@ -21,6 +27,10 @@ type Filter interface {
 	// Suffix returns the suffix of the stream after the filter, given the
 	// suffix of its input.
 	Suffix(in string) string
+	// Stage returns the stage of the filter for one attempt. What it opens,
+	// such as Files, is closed by pipeline.Start or by Spec.Close; on an
+	// error it closes it itself.
+	Stage() (pipeline.Stage, error)
 }
 
 // Dest is a dst class: where the archives of a profile are written and

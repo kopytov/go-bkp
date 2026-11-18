@@ -623,3 +623,15 @@ func TestStartFails(t *testing.T) {
 		t.Errorf("descriptor of a stage never started not closed: %v", err)
 	}
 }
+
+func TestSpecClose(t *testing.T) {
+	t.Parallel()
+	in, a, b := writeFile(t, nil), writeFile(t, nil), writeFile(t, nil)
+	Spec{In: in, Stages: []Stage{{Files: []*os.File{a}}, {}, {Files: []*os.File{b}}}}.Close()
+	for _, f := range []*os.File{in, a, b} {
+		if err := f.Close(); !errors.Is(err, os.ErrClosed) {
+			t.Errorf("%s left open: %v", f.Name(), err)
+		}
+	}
+	Spec{}.Close() // nothing to close is fine
+}
