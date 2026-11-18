@@ -10,9 +10,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unicode/utf8"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/kopytov/go-bkp/internal/tail"
 )
 
 var (
@@ -76,7 +77,7 @@ func expand(ctx context.Context, src *yaml.Node) (*yaml.Node, error) {
 func runScript(ctx context.Context, script string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "bash", "-o", "pipefail", "-c", script)
 	stdout := &capped{max: maxOutput}
-	stderr := &tailBuffer{max: stderrTail}
+	stderr := tail.New(stderrTail)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	// Its own process group, so that a cancel kills the whole pipeline
@@ -136,45 +137,6 @@ func (c *capped) Write(p []byte) (int, error) {
 	}
 	c.buf.Write(p)
 	return len(p), nil
-}
-
-// tailBuffer keeps about the last max bytes written to it.
-type tailBuffer struct {
-	b       []byte
-	max     int
-	dropped bool // the start of what was written is gone
-}
-
-func (t *tailBuffer) Write(p []byte) (int, error) {
-	t.b = append(t.b, p...)
-	if len(t.b) > 2*t.max {
-		t.b = append(t.b[:0], t.b[len(t.b)-t.max:]...)
-		t.dropped = true
-	}
-	return len(p), nil
-}
-
-// String returns the last max bytes, cut at a character boundary, for an
-// error message.
-func (t *tailBuffer) String() string {
-	b := bytes.TrimRight(t.b, " \t\r\n")
-	dropped := t.dropped || len(b) > t.max
-	if len(b) > t.max {
-		b = b[len(b)-t.max:]
-	}
-	if dropped {
-		for len(b) > 0 && !utf8.RuneStart(b[0]) {
-			b = b[1:]
-		}
-	}
-	b = bytes.TrimSpace(b)
-	switch {
-	case len(b) == 0:
-		return "(empty)"
-	case dropped:
-		return "…" + string(b)
-	}
-	return string(b)
 }
 
 // render puts each item into a copy of template and reads the copies as one
