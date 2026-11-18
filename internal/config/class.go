@@ -91,3 +91,14 @@ func known[T any](table Table[T]) string {
 	}
 	return ", known: " + strings.Join(slices.Sorted(maps.Keys(table)), ", ")
 }
+
+// AsSource adapts the constructor of a concrete src class to a Table entry.
+func AsSource[C Source](ctor func(*yaml.Node) (C, error)) func(*yaml.Node) (Source, error) {
+	return func(n *yaml.Node) (Source, error) {
+		c, err := ctor(n)
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
+	}
+}

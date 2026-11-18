@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"unicode"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -300,4 +301,27 @@ func existing(n *yaml.Node) (os.FileInfo, error) {
 		return nil, fmt.Errorf("line %d: %w", n.Line, err)
 	}
 	return fi, nil
+}
+
+// Suffix is a part of the suffix of archive names: the suffix of a source,
+// such as "tar", or what a filter adds, such as "gz". It must not be empty,
+// start with a dot or hold a slash, a space or a control character: the
+// part of a name before its first dot tells the archives of a source from
+// others, a slash would lead out of the destination, and `bkp list` prints
+// names one per line, split at spaces.
+type Suffix string
+
+// UnmarshalYAML implements yaml.Unmarshaler.
+func (s *Suffix) UnmarshalYAML(n *yaml.Node) error {
+	v, err := scalar(n)
+	if err != nil {
+		return err
+	}
+	bad := strings.ContainsFunc(v, func(r rune) bool { return r == '/' || unicode.IsSpace(r) || unicode.IsControl(r) })
+	if v == "" || strings.HasPrefix(v, ".") || bad {
+		return fmt.Errorf("line %d: suffix %q must not be empty, start with a dot "+
+			"or contain a slash, a space or a control character", n.Line, v)
+	}
+	*s = Suffix(v)
+	return nil
 }

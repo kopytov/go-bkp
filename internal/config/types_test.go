@@ -30,6 +30,7 @@ type sample struct {
 	Cwd    Dir              `yaml:"cwd"`
 	Dump   File             `yaml:"dump"`
 	Name   string           `yaml:"name"`
+	Suffix Suffix           `yaml:"suffix"`
 }
 
 func decode(t *testing.T, text string) (sample, error) {
@@ -95,6 +96,15 @@ func TestDecode(t *testing.T) {
 		{name: "dump exists", text: "dump: " + file, want: sample{Dump: File(file)}},
 		{name: "dump is a dir", text: "dump: " + dir, wantErr: "is not a regular file"},
 		{name: "dump missing", text: "dump: " + dir + "/nope", wantErr: "does not exist"},
+		{name: "suffix", text: "suffix: tar.zst", want: sample{Suffix: "tar.zst"}},
+		{name: "suffix number", text: "suffix: 7", want: sample{Suffix: "7"}},
+		{name: "suffix empty", text: `suffix: ""`, wantErr: `line 1: suffix "" must not be empty`},
+		{name: "suffix leading dot", text: "suffix: .tar", wantErr: `suffix ".tar" must not`},
+		{name: "suffix slash", text: "suffix: a/b", wantErr: `suffix "a/b" must not`},
+		{name: "suffix space", text: "suffix: 'tar gz'", wantErr: `suffix "tar gz" must not`},
+		{name: "suffix line break", text: `suffix: "tar\ngz"`, wantErr: `suffix "tar\ngz" must not`},
+		{name: "suffix null", text: "suffix: ~", wantErr: "suffix has no value"},
+		{name: "suffix list", text: "suffix: [a]", wantErr: "want a string, got a list"},
 		{name: "unknown key", text: "name: x\nfiel: y", wantErr: `line 2: unknown key "fiel"`},
 		{name: "nested unknown key", text: "mount: {point: /mnt, cmnd: [a]}", wantErr: `line 1: unknown key "cmnd"`},
 		{name: "nested", text: "mount: {point: /mnt, cmd: [a]}", want: sample{Mount: mount{Point: "/mnt", Cmd: Command{"a"}}}},
@@ -119,7 +129,7 @@ func TestDecode(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !slices.Equal(got.Files, tt.want.Files) || !slices.Equal(got.Cmd, tt.want.Cmd) ||
-				got.Cwd != tt.want.Cwd || got.Dump != tt.want.Dump ||
+				got.Cwd != tt.want.Cwd || got.Dump != tt.want.Dump || got.Suffix != tt.want.Suffix ||
 				got.Mount.Point != tt.want.Mount.Point || !slices.Equal(got.Mount.Cmd, tt.want.Mount.Cmd) {
 				t.Errorf("got %+v, want %+v", got, tt.want)
 			}
