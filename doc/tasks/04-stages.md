@@ -46,5 +46,5 @@ checked» и «`openssl` key» в `doc/compat.md`.
 
 ## Готово, когда
 
-`go test -race ./...` проходит, ревьюеры не нашли blocking, файл задачи
+`scripts/test.sh` проходит, ревьюеры не нашли blocking, файл задачи
 удалён.

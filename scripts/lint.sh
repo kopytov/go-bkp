@@ -49,6 +49,6 @@ run() {
 (( golang )) && run "go mod tidy" go mod tidy -diff
 (( golang )) && run golangci-lint golangci-lint run ./...
 (( ${#md[@]} )) && run markdownlint markdownlint-cli2 "${md[@]}"
-(( ${#sh[@]} )) && run shellcheck shellcheck -f gcc "${sh[@]}"
+(( ${#sh[@]} )) && run shellcheck shellcheck -x -f gcc "${sh[@]}"
 (( ran )) || echo "nothing to lint"
 exit "$failed"

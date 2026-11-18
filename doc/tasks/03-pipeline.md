@@ -56,5 +56,5 @@
 
 ## Готово, когда
 
-`go test -race ./internal/pipeline` проходит стабильно (прогнать с
-`-count=20`), ревьюеры не нашли blocking, файл задачи удалён.
+`scripts/test.sh ./internal/pipeline -count=20` проходит стабильно,
+ревьюеры не нашли blocking, файл задачи удалён.

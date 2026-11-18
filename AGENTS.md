@@ -25,12 +25,12 @@ tools a config names.
 ## Commands
 
 ```bash
-mise install                  # Go and the lint tools at the pinned versions
+mise install                        # Go and lint tools at pinned versions
 go build ./cmd/bkp
-go test -race ./...
-go test -race ./internal/dst -run TestRotate   # one package, one test
-scripts/lint.sh [paths...]    # all linters on changed files, findings only
-scripts/build.sh              # static release binaries into dist/
+scripts/test.sh [./pkg...] [flags]  # build, then tests under -race
+scripts/test.sh ./internal/dst -run TestRotate   # one package, one test
+scripts/lint.sh [paths...]          # linters on changed files, findings only
+scripts/build.sh                    # static release binaries into dist/
 ```
 
 ## Layout
@@ -137,7 +137,7 @@ exact output of `bkp --bytes list <config>`.
   compatibility with a real local tool (`openssl`, `gzip`) skips when the
   tool is missing.
 - Destinations are tested against `t.TempDir()`.
-- `go test -race ./...` passes before a step is presented.
+- `scripts/test.sh` passes before a step is presented.
 
 ## Tasks
 
@@ -157,8 +157,7 @@ reading the diff, so the review steps are never skipped.
    commit: it builds, its tests pass, and it can be reverted on its own. Start
    editing only once the plan is confirmed.
 2. Execute one step at a time. Leave changes unstaged in the working tree.
-3. Run `go build ./...`, `go test -race ./...` and `scripts/lint.sh`; fix
-   what they turn up.
+3. Run `scripts/test.sh` and `scripts/lint.sh`; fix what they turn up.
 4. Launch `go-reviewer` and `convention-guard` in parallel. Fix every
    blocking and should-fix finding, then run step 3 again. A finding you
    disagree with goes to the operator with your reason, not silently dropped.

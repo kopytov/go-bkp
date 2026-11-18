@@ -64,10 +64,10 @@ goes wrong, when, and the fix.
 
 ## Rules
 
-Read-only: never edit, never stage, never commit. Running `go build ./...`,
-`go vet ./...` and `go test -race ./...` is fine and expected when a finding
-needs confirming; a race or failure you reproduced is reported as such. Do not
-repeat what `golangci-lint` already reports unless it changes the verdict.
+Read-only: never edit, never stage, never commit. Running `go vet ./...` and
+`scripts/test.sh` is fine and expected when a finding needs confirming; a race
+or failure you reproduced is reported as such. Do not repeat what
+`golangci-lint` already reports unless it changes the verdict.
 
 ## Report
 
