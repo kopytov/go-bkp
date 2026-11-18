@@ -52,7 +52,8 @@ every attempt», «`post` hook failures», «Permissions» в `doc/compat.md`.
   2. выбрать имя архива;
   3. запустить конвейер;
   4. записать архив;
-  5. ротировать, если нет `no-rotate`.
+  5. удалить архив, который заменён новым (`Replaced`), и ротировать
+     (`Rotate`), если нет `no-rotate`.
 
   Ошибка на любом шаге, включая mount, — неудачная попытка:
   `<config>:<name> failed [N]` и `<config>:<name> exception: <ошибка>` в
@@ -96,6 +97,6 @@ every attempt», «`post` hook failures», «Permissions» в `doc/compat.md`.
 
 ## Готово, когда
 
-`go test -race ./...` проходит. Ручная проверка: `tar` + `gzip` → `local` на
+`scripts/test.sh` проходит. Ручная проверка: `tar` + `gzip` → `local` на
 настоящих утилитах; архив разворачивается; `echo $?` после сломанного
 конфига ненулевой. Ревьюеры не нашли blocking, файл задачи удалён.

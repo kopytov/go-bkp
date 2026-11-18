@@ -61,9 +61,24 @@ meaning of the generated YAML, so it is a load error naming the line.
 - Fields that hold a command (`cmd`, `mount.cmd`) must be YAML lists. Raku
   turns a string into a single argv element with spaces inside, which never
   runs; here it is a load error that says to write a list.
-- `dst.plan` must have at least one positive entry; Raku builds an archive
-  name with an empty period without one.
+- `dst.plan` entries must not be negative and at least one must be
+  positive. Raku builds an archive name with an empty period without a
+  positive entry. With a negative one, rotation deletes every archive of
+  that period and then fails the attempt.
 - Class names are matched case-insensitively, as in Raku.
+
+## Archive names
+
+- A name that looks like an archive but holds a date that does not exist,
+  such as `mysql-2026-02-30-y.sql.gz`, is not an archive: it is never
+  deleted or counted. Raku fails every attempt while it is the last archive
+  of a period it checks, and deletes it in rotation as the oldest of its
+  period.
+- A second run on the same day after the suffix changed (compression or
+  encryption added or removed) writes today's archive under the new suffix,
+  then deletes the one of the same date and period under the old suffix,
+  with or without `no-rotate`.
+  Raku keeps the old name, so new contents end up under a wrong suffix.
 
 ## Destination setup failures
 
