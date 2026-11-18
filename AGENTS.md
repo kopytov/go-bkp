@@ -43,6 +43,8 @@ scripts/build.sh              # static release binaries into dist/
   `init()` registration.
 - `internal/pipeline/` — starting, chaining, waiting for and killing stage
   processes.
+- `internal/run/` — running configs and profiles: attempts, cleanup, `post`,
+  exit status.
 - `testdata/` next to the tests that use it.
 - `doc/compat.md` — departures from `../raku-bkp`.
 
@@ -53,10 +55,11 @@ scripts/build.sh              # static release binaries into dist/
   range over int) rather than hand-rolled equivalents.
 - Code is `gofmt`ed and `golangci-lint` clean. A `//nolint` carries the
   linter name and the reason on the same line.
-- Standard library first. The only third-party module approved so far is
-  `go.yaml.in/yaml/v3`. Any other one goes into the plan with what it replaces
-  and waits for the operator's approval; once approved, it is added to the
-  `depguard` allow list in `.golangci.yml`. The CLI is built on `flag`.
+- Standard library first. The third-party modules approved so far are
+  `go.yaml.in/yaml/v3` and `github.com/jlaffaye/ftp`. Any other one goes
+  into the plan with what it replaces and waits for the operator's approval;
+  once approved, it is added to the `depguard` allow list in
+  `.golangci.yml`. The CLI is built on `flag`.
 - `CGO_ENABLED=0` always. Signals and process groups go through `syscall`.
 - Errors are returned, not panicked, and wrapped with `fmt.Errorf("…: %w")`
   carrying the profile and stage they come from. Messages are lowercase,
@@ -79,8 +82,8 @@ scripts/build.sh              # static release binaries into dist/
 This is the core of the program; most real defects will be here.
 
 - A stage is an external process started with `exec.CommandContext` and an
-  argv slice. `sh -c` runs only what the config states as a shell string:
-  `src.script` and `post`.
+  argv slice. `bash -o pipefail -c` runs only what the config states as a
+  shell string: `src.script` and `post`.
 - Adjacent stages are joined by a file descriptor: the stdout of one is the
   `*os.File` stdin of the next, so the data never passes through `bkp`.
   Go code sits in the data path only where a stage is implemented in Go, and
@@ -96,11 +99,10 @@ This is the core of the program; most real defects will be here.
 - Every stage's exit status is checked, not just the last one's. An archive
   counts as written only when all stages exited 0; a partial archive is never
   left looking like a good one.
-- Stage stderr goes to the log when `BKP_LOG` is set; either way its last
+- Stage stderr is copied to stderr when `BKP_LOG` is set; either way its last
   lines are kept and go into the error when the stage fails.
-- Snapshots and mounts a source or destination creates (LVM, virsh, ploop,
-  `mount`) are released on every exit path: success, failure, retry and
-  signal.
+- Whatever a source or destination sets up — a mount, a snapshot — is
+  released after every attempt: success, failure and signal alike.
 - Passwords and keys never reach the log. Where the tool can take a secret
   from the environment, a file descriptor or stdin, it gets it there rather
   than in argv, which every user on the host can read in `ps`.
@@ -109,10 +111,17 @@ This is the core of the program; most real defects will be here.
 
 ## Output
 
-Progress and debug lines go to stdout through `log/slog`, and only when
-`BKP_LOG` is set. Failures — a config that does not load, a failed attempt,
-`BACKUP <config>:<profile> FAILED!` — go to stdout unconditionally: cron mails
-them. Exit status is non-zero when any profile failed.
+Progress lines go to stdout, and only when `BKP_LOG` is set, in the Raku
+format `<time> bkp: [<pid>] <message>`. Error messages — a config that does
+not load, a failed attempt, `BACKUP <config>:<profile> FAILED!`, a failed
+`post` hook — go to stderr unconditionally.
+
+`bkp <config>...` works through every config and every profile even when some
+fail, and exits non-zero when any config failed to load, any profile ran out
+of attempts or any `post` hook failed. A backup that was not taken never ends
+in exit status 0. `bkp list` exits non-zero when its config does not load; the metrics
+collector in `../infrastructure` (role `bkp`) relies on that and parses the
+exact output of `bkp --bytes list <config>`.
 
 ## Tests
 
@@ -124,9 +133,19 @@ them. Exit status is non-zero when any profile failed.
   examples from `../raku-bkp/README.md`.
 - Process tests use fake tools: small scripts in `testdata/` put first in
   `PATH`, or the test binary re-executed as a helper process. Never the real
-  `mysqldump`, `virsh`, `lvcreate`, FTP server, network or root.
+  `mysqldump`, a remote FTP server, the network or root. A test that checks
+  compatibility with a real local tool (`openssl`, `gzip`) skips when the
+  tool is missing.
 - Destinations are tested against `t.TempDir()`.
 - `go test -race ./...` passes before a step is presented.
+
+## Tasks
+
+The port is planned as task files in `doc/tasks/`, done in number order. A
+task file is the spec of its work: read it and the `../raku-bkp` sources it
+names before planning its steps. The commit that completes a task deletes its
+file. Decisions that depart from the Raku behaviour are in `doc/compat.md`;
+a task that makes a new one adds it there.
 
 ## Workflow
 

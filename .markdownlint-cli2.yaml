@@ -1,4 +1,6 @@
 config:
+  MD013:
+    tables: false
   MD041:
     front_matter_title: "^\\s*name\\s*:"
 ignores:
