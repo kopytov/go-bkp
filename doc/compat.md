@@ -16,8 +16,8 @@ Raku checks only the exit status of the process that writes to the
 destination, so `mysqldump` dying mid-dump still yields a "good" archive.
 Here every stage must exit with a status its class allows: `tar` 0 or 1
 (1 means a file changed while being read, which is normal on live data and
-is logged; the allowance assumes GNU tar, also when `cmd` is overridden),
-`gzip` 0 or 2 (2 is a warning), everything else 0.
+is logged), `gzip` 0 or 2 (2 is a warning), everything else 0. These
+allowances assume GNU tar and gzip, also when `cmd` is overridden.
 
 ## Send first, rotate after
 
@@ -88,13 +88,17 @@ exits; if it holds the script's output open, the load fails.
 - `files: []` of `tar` and `dbs: []` of `mysql` are load errors. Raku runs
   `tar` without files, which fails, and `mysqldump` without databases,
   which dumps nothing useful. Leaving `dbs` out still dumps all databases.
-- A `suffix` that is empty, starts with a dot or contains a slash, a space
-  or a control character is a load error. Raku builds archive names from it
-  as it is: a slash leads out of the destination directory, with an empty
-  main suffix rotation takes any archive of the prefix for its own, and a
-  space or a line break breaks the output of `bkp list`.
+- A `suffix` or `add-suffix` that is empty, starts with a dot or contains a
+  slash, a space or a control character is a load error. Raku builds
+  archive names from it as it is: a slash leads out of the destination
+  directory, with an empty main suffix rotation takes any archive of the
+  prefix for its own, and a space or a line break breaks the output of
+  `bkp list`.
 - An entry without a value in a list such as `exclude: [a, ~]` is a load
   error; Raku drops it.
+- A negative `procs` of `pigz` is a load error. Raku passes it to `pigz`,
+  which refuses it at every attempt. `procs: 0` still leaves the number of
+  threads to `pigz`.
 - A source name or `dst.prefix` that contains a slash is a load error: it
   starts archive names, and Raku would write such an archive outside the
   destination directory. An empty one, `.` and `..` are refused too, as they

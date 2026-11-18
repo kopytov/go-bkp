@@ -102,3 +102,15 @@ func AsSource[C Source](ctor func(*yaml.Node) (C, error)) func(*yaml.Node) (Sour
 		return c, nil
 	}
 }
+
+// AsFilter adapts the constructor of a concrete compress, crypt or shape
+// class to a Table entry.
+func AsFilter[C Filter](ctor func(*yaml.Node) (C, error)) func(*yaml.Node) (Filter, error) {
+	return func(n *yaml.Node) (Filter, error) {
+		c, err := ctor(n)
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
+	}
+}
