@@ -8,7 +8,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -499,9 +498,21 @@ func TestBackupCancelled(t *testing.T) {
 	if strings.Contains(stderr, "failed [1]") {
 		t.Errorf("retried after a cancel:\n%s", stderr)
 	}
-	if child := readPID(t, pidFile); processAlive(child) {
+	if child := readPID(t, pidFile); !gone(child) {
 		t.Errorf("child %d of the source still running", child)
 	}
+}
+
+// gone waits a little for pid to die, as the SIGKILL to its group may
+// reach it after the call that sent it returned, and reports whether it did.
+func gone(pid int) bool {
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		if !processAlive(pid) {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return false
 }
 
 // processAlive reports whether pid runs; a zombie does not count, as its
@@ -511,8 +522,8 @@ func processAlive(pid int) bool {
 	if err != nil {
 		return false
 	}
-	m := regexp.MustCompile(`\) (\S)`).FindSubmatch(data)
-	return m != nil && string(m[1]) != "Z"
+	i := bytes.LastIndexByte(data, ')')
+	return i >= 0 && i+2 < len(data) && data[i+2] != 'Z'
 }
 
 func TestBackupUmountFailsAfterFailedAttempt(t *testing.T) {
@@ -603,7 +614,7 @@ func TestBackupPostCancelled(t *testing.T) {
 	}
 	checkFiles(t, a, map[string]string{"www-2026-11-19-d.txt": "www"})
 	containsStderr(t, h.stderr.String(), "www.yml:www post hook failed: signal: killed")
-	if child := readPID(t, pidFile); processAlive(child) {
+	if child := readPID(t, pidFile); !gone(child) {
 		t.Errorf("child %d of the post hook still running", child)
 	}
 }
