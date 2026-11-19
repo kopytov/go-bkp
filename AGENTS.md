@@ -13,7 +13,7 @@ This is a port of the Raku implementation in `../raku-bkp`, and that tree is
 the spec. The config format, class names and their attributes, archive names
 `<prefix>-YYYY-MM-DD-<period>.<suffix>`, the rotation, and the CLI
 (`bkp <config>...`, `list`, `download`, `list-profiles`) stay compatible: the
-binary replaces the old one over the same `/etc/opt/bkp/*.yml` and the
+binary replaces the old one over the same `/usr/local/etc/bkp/*.yaml` and the
 archives already stored, and an archive the old version wrote stays
 restorable. Every deliberate departure from the Raku behaviour is recorded in
 `doc/compat.md` with its reason.
