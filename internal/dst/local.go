@@ -46,22 +46,12 @@ func NewLocal(n *yaml.Node) (*Local, error) {
 	}
 	if l.MountSpec != nil && l.MountSpec.Point == "" {
 		// Raku skips a mount section without keys only.
-		if m := mountNode(n); m != nil && len(m.Content) > 0 {
+		if _, m := keyValue(n, "mount"); m != nil && len(m.Content) > 0 {
 			return nil, fmt.Errorf("line %d: mount.point is required", m.Line)
 		}
 		l.MountSpec = nil
 	}
 	return &l, nil
-}
-
-// mountNode returns the value of the mount key of section n, or nil.
-func mountNode(n *yaml.Node) *yaml.Node {
-	for i := 0; i+1 < len(n.Content); i += 2 {
-		if n.Content[i].Value == "mount" {
-			return n.Content[i+1]
-		}
-	}
-	return nil
 }
 
 // Mount implements config.Dest. When a mount point is configured and not

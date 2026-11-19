@@ -222,6 +222,12 @@ Raku drives the `ncftp` tools. Here FTP is built in: the host needs no
 `ncftp`, the password stays out of argv, and connections and stalled
 transfers time out instead of hanging.
 
+- An empty `username`, a `port` outside 1-65535 and a line break in
+  `hostname`, `username`, `password` or `path` are load errors. Raku passes
+  them to `ncftp`, which fails in the attempt or, with an empty user name,
+  may log in anonymously. A key of these without a value is a load error
+  too, as for the other classes (see above).
+
 ## CLI
 
 - `bkp` without arguments prints the usage to stderr and exits 2; Raku exits

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"go.yaml.in/yaml/v3"
+
 	"github.com/kopytov/go-bkp/internal/config"
 	"github.com/kopytov/go-bkp/internal/tail"
 )
@@ -55,6 +57,17 @@ func checkBase(name string) error {
 		return fmt.Errorf("%q is not a file name in the destination", name)
 	}
 	return nil
+}
+
+// keyValue returns the key node and the value of key in section n, or nils
+// when n has no such key.
+func keyValue(n *yaml.Node, key string) (k, v *yaml.Node) {
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		if n.Content[i].Value == key {
+			return n.Content[i], n.Content[i+1]
+		}
+	}
+	return nil, nil
 }
 
 // runTool runs a helper tool, such as mount, and returns an error with its
