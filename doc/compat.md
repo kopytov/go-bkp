@@ -156,8 +156,9 @@ is dropped; the others are the same.
 
 Raku does not handle signals. Here `SIGTERM` or `SIGINT` cancels the current
 attempt: its processes are killed, cleanup runs, the temporary archive is
-deleted, the remaining profiles and configs are skipped and the exit status
-is non-zero.
+deleted, the remaining profiles and configs are skipped, `bkp: stopped by
+SIGTERM` (or `SIGINT`) goes to stderr and the exit status is 128 plus the
+signal number, as for a process the signal killed.
 
 ## Stage process groups
 

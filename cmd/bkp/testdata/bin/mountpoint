@@ -1,0 +1,3 @@
+#!/bin/sh
+# Fake mountpoint -q: nothing is ever mounted.
+exit 32
