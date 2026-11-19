@@ -241,6 +241,10 @@ func TestLocalRefusesOutsideNames(t *testing.T) {
 		if err := l.Write(t.Context(), name, sendString("x")); err == nil {
 			t.Errorf("Write accepted %q", name)
 		}
+		if f, err := l.Open(t.Context(), name); err == nil {
+			f.Close() //nolint:errcheck,gosec // opened by mistake, read-only
+			t.Errorf("Open accepted %q", name)
+		}
 	}
 	if _, err := os.Stat(filepath.Join(parent, "victim")); err != nil {
 		t.Errorf("file outside dir: %v", err)

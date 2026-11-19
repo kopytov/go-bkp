@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -161,6 +162,18 @@ func (l *Local) Delete(_ context.Context, name string) error {
 		return fmt.Errorf("delete: %w", err)
 	}
 	return nil
+}
+
+// Open implements config.Dest.
+func (l *Local) Open(_ context.Context, name string) (io.ReadCloser, error) {
+	if err := checkBase(name); err != nil {
+		return nil, err
+	}
+	f, err := os.Open(filepath.Join(l.Dir, name)) //nolint:gosec // G304: the path is dir and a checked base name
+	if err != nil {
+		return nil, fmt.Errorf("open: %w", err)
+	}
+	return f, nil
 }
 
 // Write implements config.Dest. The archive is written to .<name>.partial,

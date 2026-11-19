@@ -250,5 +250,13 @@ transfers time out instead of hanging.
   exactly halfway, such as 1280 bytes (1.25K), to the even digit: `1.2K`.
   Rakudo's `sprintf` may give `1.3K` there. `--bytes`, which the collector
   uses, is unaffected.
+- `bkp download` copies only an archive that `bkp list` shows for the
+  profile. Raku copies any file of the destination, including a `.partial`
+  one still being written, which yields a truncated archive without an
+  error.
+- `bkp download` writes the file under a temporary name next to it and
+  renames it once complete, so a failed download leaves nothing behind.
+  With `--force` an existing file is replaced only then; Raku deletes it
+  before the download starts.
 - `bkp list-profiles` prints profile names sorted.
 - `bkp --version` is new.

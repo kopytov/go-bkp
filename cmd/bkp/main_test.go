@@ -374,3 +374,58 @@ func TestListBrokenConfig(t *testing.T) {
 		t.Errorf("bkp list of a broken config: %+v", res)
 	}
 }
+
+func TestDownload(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	multi := writeFile(t, dir, "multi.yml", fmt.Sprintf(
+		"src:\n  www: {class: cmd, cmd: [printf, w], suffix: txt}\n  db: {class: cmd, cmd: [printf, d], suffix: txt}\n"+
+			"dst: {class: local, dir: %s, plan: {d: 3}}\n", dir))
+	const archive = "www-2026-11-19-d.txt"
+	writeFile(t, dir, archive, "www archive")
+	out := t.TempDir()
+
+	res := runBkp(t, bkp(t, "download", multi, archive))
+	if res.code != 1 || res.stderr != "bkp: --profile should be specified for "+multi+"\n" {
+		t.Errorf("bkp download without --profile: %+v", res)
+	}
+
+	res = runBkp(t, bkp(t, "download", "--profile=www", multi, archive, "--filename", "-"))
+	if res.code != 0 || res.stdout != "www archive" || res.stderr != "" {
+		t.Errorf("bkp download to stdout: %+v", res)
+	}
+
+	// Without --filename, into the current directory.
+	cmd := bkp(t, "download", multi, archive, "--profile", "www")
+	cmd.Dir = out
+	if res := runBkp(t, cmd); res.code != 0 || res.stdout != "" || res.stderr != "" {
+		t.Errorf("bkp download to a file: %+v", res)
+	}
+	got := filepath.Join(out, archive)
+	checkContent(t, got, "www archive")
+
+	if err := os.WriteFile(got, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res = runBkp(t, bkp(t, "download", multi, archive, "--profile", "www", "--filename", got))
+	if res.code != 1 || res.stderr != "bkp: "+got+" exists, use --force option\n" {
+		t.Errorf("bkp download over a file: %+v", res)
+	}
+	checkContent(t, got, "old")
+	res = runBkp(t, bkp(t, "--force", "download", multi, archive, "--profile", "www", "--filename", got))
+	if res.code != 0 || res.stderr != "" {
+		t.Errorf("bkp download --force over a file: %+v", res)
+	}
+	checkContent(t, got, "www archive")
+}
+
+func checkContent(t *testing.T, path, want string) {
+	t.Helper()
+	data, err := os.ReadFile(path) //nolint:gosec // G304: a file the test made
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != want {
+		t.Errorf("%s holds %q, want %q", path, data, want)
+	}
+}

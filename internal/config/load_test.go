@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,7 @@ func (*fakeDst) Mount(context.Context) error                               { ret
 func (*fakeDst) Umount(context.Context) error                              { return nil }
 func (*fakeDst) List(context.Context) ([]Entry, error)                     { return nil, nil }
 func (*fakeDst) Delete(context.Context, string) error                      { return nil }
+func (*fakeDst) Open(context.Context, string) (io.ReadCloser, error)       { return nil, nil }
 func (*fakeDst) Write(context.Context, string, func(*os.File) error) error { return nil }
 
 func newFake(class string, n *yaml.Node) (fake, error) {

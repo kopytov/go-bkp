@@ -61,6 +61,15 @@ func cli(args []string, stdout, stderr io.Writer, pause func(context.Context, ti
 	switch c.name {
 	case "list":
 		err = run.List(ctx, stdout, run.Classes(), c.args[0], c.opts.bytes, c.opts.profile)
+	case "download":
+		d := run.Download{
+			Config:   c.args[0],
+			Archive:  c.args[1],
+			Profile:  c.opts.profile,
+			Filename: c.opts.filename,
+			Force:    c.opts.force,
+		}
+		err = d.Run(ctx, run.Classes(), stdout)
 	case "list-profiles":
 		err = run.ListProfiles(ctx, stdout, run.Classes(), c.args[0])
 	default:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"slices"
@@ -54,6 +55,9 @@ type Dest interface {
 	List(ctx context.Context) ([]Entry, error)
 	// Delete deletes the file name.
 	Delete(ctx context.Context, name string) error
+	// Open opens the file name for reading. An implementation that reads
+	// over the network stops the read once ctx is done.
+	Open(ctx context.Context, name string) (io.ReadCloser, error)
 	// Write stores the archive name. It calls send with the file to write
 	// the archive to, and send returns once the data is written or failed.
 	// The archive appears under name only when send succeeds; otherwise
