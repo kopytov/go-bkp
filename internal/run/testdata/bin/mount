@@ -1,0 +1,9 @@
+#!/bin/sh
+# Fake mount <point>: marks the point mounted, or fails with
+# $FAKE_MOUNT_FAIL set.
+echo "mount $*" >>"$FAKE_TOOLS_LOG"
+if [ -n "$FAKE_MOUNT_FAIL" ]; then
+    echo "mount: $1: can't find in /etc/fstab." >&2
+    exit 1
+fi
+touch "$1/.mounted"

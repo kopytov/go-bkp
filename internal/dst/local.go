@@ -166,7 +166,8 @@ func (l *Local) Delete(_ context.Context, name string) error {
 // Write implements config.Dest. The archive is written to .<name>.partial,
 // created 0600, and renamed to name once send succeeded and the data is
 // synced to disk. On a failure the temporary file is deleted. A failure to
-// sync the directory after the rename leaves the archive in place.
+// sync the directory after the rename leaves the archive in place and wraps
+// config.ErrInPlace.
 func (l *Local) Write(_ context.Context, name string, send func(out *os.File) error) (err error) {
 	if err := checkBase(name); err != nil {
 		return err
@@ -211,7 +212,10 @@ func (l *Local) Write(_ context.Context, name string, send func(out *os.File) er
 	if err := os.Rename(tmp, final); err != nil {
 		return fmt.Errorf("rename %s: %w", tmp, err)
 	}
-	return syncDir(l.Dir)
+	if err := syncDir(l.Dir); err != nil {
+		return fmt.Errorf("%w, but %w", config.ErrInPlace, err)
+	}
+	return nil
 }
 
 // syncDir makes a rename in dir durable.

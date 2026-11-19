@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -56,9 +57,15 @@ type Dest interface {
 	// Write stores the archive name. It calls send with the file to write
 	// the archive to, and send returns once the data is written or failed.
 	// The archive appears under name only when send succeeds; otherwise
-	// nothing is left behind.
+	// nothing is left behind. An error wrapping ErrInPlace means the
+	// archive is under name all the same, such as when making that durable
+	// failed.
 	Write(ctx context.Context, name string, send func(out *os.File) error) error
 }
+
+// ErrInPlace marks an error of Dest.Write after the archive was put under
+// its name.
+var ErrInPlace = errors.New("archive in place")
 
 // Entry is a file in a destination.
 type Entry struct {

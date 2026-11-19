@@ -30,6 +30,13 @@ temporary file. A second run the same day replaces today's archive only after
 the new one is complete. The storage needs room for one extra archive during
 the send.
 
+An archive that cannot be deleted in rotation is reported on stderr and
+makes the exit status non-zero; the others are still deleted. The new
+archive counts as written, the profile is not retried and its `post` hook
+still runs. In Raku a failed delete fails the attempt, which then retries. A
+failure to sync the directory after the rename, which only makes the new
+name durable, is handled the same way.
+
 ## Exit status of `bkp <config>...`
 
 Raku exits 0 even when a config failed to load or a profile ran out of
@@ -37,6 +44,14 @@ attempts, so a backup that was not taken raised no alert. Here every config
 and profile is still processed, and the exit status is non-zero when any
 config failed to load, any profile ran out of attempts or any `post` hook
 failed.
+
+## Progress log
+
+Under `BKP_LOG` the progress lines of Raku are kept as they are, with two
+more for each attempt: `<config>:<profile> writing <archive>` and
+`<config>:<profile> deleting <archive>` for each archive replaced or
+rotated away. A stage that exits with a status its class allows besides 0,
+such as `tar` with 1, gets a line too.
 
 ## Error messages go to stderr
 
@@ -162,6 +177,11 @@ terminal.
 
 Raku runs the source's cleanup and `umount` only after a successful send.
 Here they run after every attempt, failed ones included.
+An `umount` that fails after the archive was written is reported on stderr
+and makes the exit status non-zero; the archive counts as written, the
+profile is not retried and its `post` hook still runs. Raku dies there and
+skips the rest of the run. `umount` runs after a cancelled attempt too
+and is given up to 5 minutes.
 
 ## `post` hook failures
 
