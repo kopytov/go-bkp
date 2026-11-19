@@ -65,6 +65,11 @@ func parse(args []string) (command, error) {
 	if c.opts.help {
 		return c, nil
 	}
+	for _, name := range []string{"profile", "filename"} {
+		if c.opts.given[name] && fs.Lookup(name).Value.String() == "" {
+			return c, fmt.Errorf("--%s needs a value", name)
+		}
+	}
 	if c.opts.version {
 		if len(args) != 1 {
 			return c, errors.New("--version takes no other arguments")

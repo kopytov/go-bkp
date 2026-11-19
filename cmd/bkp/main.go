@@ -59,6 +59,8 @@ func cli(args []string, stdout, stderr io.Writer, pause func(context.Context, ti
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	switch c.name {
+	case "list":
+		err = run.List(ctx, stdout, run.Classes(), c.args[0], c.opts.bytes, c.opts.profile)
 	case "list-profiles":
 		err = run.ListProfiles(ctx, stdout, run.Classes(), c.args[0])
 	default:

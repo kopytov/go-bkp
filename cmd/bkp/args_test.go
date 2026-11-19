@@ -95,6 +95,8 @@ func TestParseErrors(t *testing.T) {
 		{[]string{"--frobnicate", "a.yml"}, "unknown option --frobnicate"},
 		{[]string{"list", "a.yml", "--profile"}, "option --profile needs a value"},
 		{[]string{"--bytes=maybe", "list", "a.yml"}, "invalid boolean value"},
+		{[]string{"list", "a.yml", "--profile="}, "--profile needs a value"},
+		{[]string{"download", "a.yml", "x", "--filename", ""}, "--filename needs a value"},
 		{[]string{"--bytes", "a.yml"}, "--bytes is not an option of a backup"},
 		{[]string{"list-profiles", "a.yml", "--profile", "x"}, "--profile is not an option of list-profiles"},
 		{[]string{"list", "a.yml", "--force", "--filename=x"}, "--filename is not an option of list"},

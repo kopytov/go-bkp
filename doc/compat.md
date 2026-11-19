@@ -238,5 +238,17 @@ transfers time out instead of hanging.
   `MAIN` by default takes options only before the first positional argument
   and values only as `--opt=value`: `bkp list a.yml --bytes` backs up
   configs `list`, `a.yml` and `--bytes`.
+- An empty `--profile` or `--filename`, such as `--profile=`, is a usage
+  error with exit status 2. Raku takes it as given: `list` prints nothing
+  and exits 0, `download` fails on an unknown profile or an empty file name.
+- `bkp list --profile <name>` with a profile the config does not have is an
+  error with exit status 1. Raku prints nothing and exits 0, which the
+  metrics collector would take for a profile without archives.
+- `bkp list` leaves out a name with a date that does not exist, as it is
+  not an archive here (see "Archive names"); Raku lists it.
+- Sizes without `--bytes` are formatted by Go's `%.1f`, which rounds a size
+  exactly halfway, such as 1280 bytes (1.25K), to the even digit: `1.2K`.
+  Rakudo's `sprintf` may give `1.3K` there. `--bytes`, which the collector
+  uses, is unaffected.
 - `bkp list-profiles` prints profile names sorted.
 - `bkp --version` is new.

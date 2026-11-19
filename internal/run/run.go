@@ -162,9 +162,7 @@ func (r *Runner) profile(ctx context.Context, name string, p config.Profile) boo
 // place; err is then what failed after it: rotation or the release.
 func (r *Runner) attempt(ctx context.Context, name string, p config.Profile) (written bool, err error) {
 	defer func() {
-		uctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), umountTimeout)
-		defer cancel()
-		if uerr := p.Dst.Umount(uctx); uerr != nil {
+		if uerr := umount(ctx, p.Dst); uerr != nil {
 			if written {
 				err = errors.Join(err, fmt.Errorf("cleanup failed: dst: %w", uerr))
 			} else {

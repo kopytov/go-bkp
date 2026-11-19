@@ -76,6 +76,9 @@ type Entry struct {
 // Naming names the archives of a profile and picks those to delete. It
 // works on file names only.
 type Naming interface {
+	// Archives returns the names among names that are archives of the
+	// profile, sorted by name.
+	Archives(names []string) []string
 	// Next returns the name of the archive to write on the date of today.
 	Next(names []string, today time.Time) (string, error)
 	// Replaced returns the archives that written replaces, to delete once

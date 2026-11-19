@@ -63,7 +63,7 @@ func runBkp(t *testing.T, cmd *exec.Cmd) result {
 	return result{code: cmd.ProcessState.ExitCode(), stdout: stdout.String(), stderr: stderr.String()}
 }
 
-func writeConfig(t *testing.T, dir, name, text string) string {
+func writeFile(t *testing.T, dir, name, text string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
@@ -114,8 +114,8 @@ func TestNoArguments(t *testing.T) {
 func TestAllGood(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	a := writeConfig(t, dir, "a.yml", cmdConfig("printf a", dir, ""))
-	b := writeConfig(t, dir, "b.yml", cmdConfig("printf b", dir, "post: echo post ran\n"))
+	a := writeFile(t, dir, "a.yml", cmdConfig("printf a", dir, ""))
+	b := writeFile(t, dir, "b.yml", cmdConfig("printf b", dir, "post: echo post ran\n"))
 	res := runBkp(t, bkp(t, a, b))
 	if res.code != 0 || res.stderr != "" || res.stdout != "post ran\n" {
 		t.Errorf("bkp: %+v", res)
@@ -141,10 +141,10 @@ func TestBrokenScript(t *testing.T) {
 		t.Run(script, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			broken := writeConfig(t, dir, "mariadb.yaml", fmt.Sprintf(
+			broken := writeFile(t, dir, "mariadb.yaml", fmt.Sprintf(
 				"src:\n  script: %q\n  template: |\n    {{ item }}: {class: cmd, cmd: [printf, x], suffix: txt}\n"+
 					"dst: {class: local, dir: %s, plan: {d: 3}}\n", script, dir))
-			good := writeConfig(t, dir, "www.yml", cmdConfig("printf www", dir, ""))
+			good := writeFile(t, dir, "www.yml", cmdConfig("printf www", dir, ""))
 			res := runBkp(t, bkp(t, broken, good))
 			if res.code != 1 {
 				t.Errorf("exit status %d, want 1; stderr:\n%s", res.code, res.stderr)
@@ -166,8 +166,8 @@ func TestDstDoesNotMount(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	point := t.TempDir()
-	nas := writeConfig(t, dir, "nas.yml", cmdConfig("printf nas", dir, "  mount: {point: "+point+", cmd: [\"false\"]}\n"))
-	good := writeConfig(t, dir, "www.yml", cmdConfig("printf www", dir, ""))
+	nas := writeFile(t, dir, "nas.yml", cmdConfig("printf nas", dir, "  mount: {point: "+point+", cmd: [\"false\"]}\n"))
+	good := writeFile(t, dir, "www.yml", cmdConfig("printf www", dir, ""))
 	res := runBkp(t, bkp(t, nas, good))
 	if res.code != 1 {
 		t.Errorf("exit status %d, want 1; stderr:\n%s", res.code, res.stderr)
@@ -187,8 +187,8 @@ func TestSignalDuringSend(t *testing.T) {
 			started := filepath.Join(dir, "started")
 			pidFile := filepath.Join(dir, "child")
 			script := fmt.Sprintf("printf half; sleep 60 & echo $! > %s; touch %s; wait", pidFile, started)
-			slow := writeConfig(t, dir, "slow.yml", cmdConfig(script, dir, ""))
-			next := writeConfig(t, dir, "next.yml", cmdConfig("printf next", dir, ""))
+			slow := writeFile(t, dir, "slow.yml", cmdConfig(script, dir, ""))
+			next := writeFile(t, dir, "next.yml", cmdConfig("printf next", dir, ""))
 			cmd := bkp(t, slow, next)
 			var stdout, stderr bytes.Buffer
 			cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -312,10 +312,10 @@ func TestVersion(t *testing.T) {
 func TestListProfiles(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	multi := writeConfig(t, dir, "multi.yml", fmt.Sprintf(
+	multi := writeFile(t, dir, "multi.yml", fmt.Sprintf(
 		"src:\n  www: {class: cmd, cmd: [printf, w], suffix: txt}\n  db: {class: cmd, cmd: [printf, d], suffix: txt}\n"+
 			"dst: {class: local, dir: %s, plan: {d: 3}}\n", dir))
-	single := writeConfig(t, dir, "single.yml", cmdConfig("printf s", dir, ""))
+	single := writeFile(t, dir, "single.yml", cmdConfig("printf s", dir, ""))
 	for _, tt := range []struct{ config, want string }{
 		{multi, "db\nwww\n"},
 		{single, "single\n"},
@@ -329,5 +329,48 @@ func TestListProfiles(t *testing.T) {
 	res := runBkp(t, bkp(t, "list-profiles", filepath.Join(dir, "missing.yml")))
 	if res.code != 1 || res.stdout != "" || !strings.Contains(res.stderr, "missing.yml: no such file") {
 		t.Errorf("bkp list-profiles of a missing config: %+v", res)
+	}
+}
+
+func TestList(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	cfg := writeFile(t, dir, "multi.yml", fmt.Sprintf(
+		"src:\n  www: {class: cmd, cmd: [printf, w], suffix: txt}\n  db: {class: cmd, cmd: [printf, d], suffix: txt}\n"+
+			"dst: {class: local, dir: %s, plan: {d: 3}}\n", dir))
+	for name, data := range map[string]string{
+		"db-2026-11-19-d.txt":           strings.Repeat("d", 1234),
+		"www-2026-11-18-d.txt":          strings.Repeat("w", 2048),
+		".www-2026-11-19-d.txt.partial": "w",
+	} {
+		writeFile(t, dir, name, data)
+	}
+	all := "db:\n\ndb-2026-11-19-d.txt 1234\n\nwww:\n\nwww-2026-11-18-d.txt 2048\n"
+	www := "www-2026-11-18-d.txt 2048\n"
+	tests := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--bytes", "list", cfg}, all},
+		{[]string{"list", cfg, "--bytes"}, all},
+		{[]string{"list", cfg}, "db:\n\ndb-2026-11-19-d.txt 1.2K\n\nwww:\n\nwww-2026-11-18-d.txt 2.0K\n"},
+		{[]string{"--bytes", "list", cfg, "--profile=www"}, www},
+		{[]string{"--profile", "www", "--bytes", "list", cfg}, www},
+	}
+	for _, tt := range tests {
+		res := runBkp(t, bkp(t, tt.args...))
+		if res.code != 0 || res.stdout != tt.want || res.stderr != "" {
+			t.Errorf("bkp %q: %+v", tt.args, res)
+		}
+	}
+}
+
+func TestListBrokenConfig(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	broken := writeFile(t, dir, "broken.yml", "src: [\n")
+	res := runBkp(t, bkp(t, "--bytes", "list", broken))
+	if res.code != 1 || res.stdout != "" || !strings.HasPrefix(res.stderr, "bkp: "+broken+": ") {
+		t.Errorf("bkp list of a broken config: %+v", res)
 	}
 }
