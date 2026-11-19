@@ -41,6 +41,8 @@ scripts/build.sh                    # static release binaries into dist/
   `internal/dst/` — one file per class, named after it (`tar.go`, `ftp.go`).
   Each package maps class names to constructors in one explicit table; no
   `init()` registration.
+- `internal/dst/ftptest/` — in-process FTP server for tests, imported only
+  from `_test.go` files.
 - `internal/pipeline/` — starting, chaining, waiting for and killing stage
   processes.
 - `internal/run/` — running configs and profiles: attempts, cleanup, `post`,

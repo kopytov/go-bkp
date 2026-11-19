@@ -1,4 +1,6 @@
-package dst
+// Package ftptest provides an FTP server for tests on 127.0.0.1, with
+// faults to switch on, in the manner of net/http/httptest.
+package ftptest
 
 import (
 	"bufio"
@@ -16,69 +18,84 @@ import (
 	"time"
 )
 
-// ftpFaults are what a test FTP server does wrong.
-type ftpFaults struct {
-	// silent accepts connections and never answers.
-	silent bool
-	// mute stops answering once the user logged in.
-	mute bool
-	// echoPass repeats a wrong password in the reply to it.
-	echoPass bool
-	// noMLSD leaves MLST out of FEAT, so the client lists with LIST.
-	noMLSD bool
-	// noOverwrite refuses to rename onto an existing file.
-	noOverwrite bool
-	// stallAfter, when positive, makes STOR stop reading and answering
+// Faults are what a Server does wrong.
+type Faults struct {
+	// Silent accepts connections and never answers.
+	Silent bool
+	// Mute stops answering once the user logged in.
+	Mute bool
+	// EchoPass repeats a wrong password in the reply to it.
+	EchoPass bool
+	// NoMLSD leaves MLST out of FEAT, so the client lists with LIST.
+	NoMLSD bool
+	// NoOverwrite refuses to rename onto an existing file.
+	NoOverwrite bool
+	// NoDelete refuses DELE.
+	NoDelete bool
+	// NoRename refuses RNTO.
+	NoRename bool
+	// StallAfter, when positive, makes STOR stop reading and answering
 	// after that many bytes.
-	stallAfter int64
-	// abortAfter, when positive, makes STOR drop the data connection
+	StallAfter int64
+	// AbortAfter, when positive, makes STOR drop the data connection
 	// after that many bytes and reply 426.
-	abortAfter int64
+	AbortAfter int64
+	// TruncateAfter, when positive, makes RETR end the data after that many
+	// bytes and reply 426.
+	TruncateAfter int64
 }
 
-// ftpServer is an FTP server for tests on 127.0.0.1: one user, the files
-// in a directory that is the user's root, passive mode by EPSV only.
-type ftpServer struct {
-	root       string
-	user, pass string
-	faults     ftpFaults
-	ln         net.Listener
-	done       chan struct{}
-	wg         sync.WaitGroup
-	stopOnce   sync.Once
+// Server is an FTP server for tests on 127.0.0.1: user User with
+// password Password, the files in Root, which is the user's root, passive
+// mode by EPSV only.
+type Server struct {
+	// Root is the directory the server serves.
+	Root     string
+	faults   Faults
+	ln       net.Listener
+	done     chan struct{}
+	wg       sync.WaitGroup
+	stopOnce sync.Once
+	// created is closed once a STOR has created its file.
+	created     chan struct{}
+	createdOnce sync.Once
 
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}
 }
 
+// User and Password are the account of every Server.
 const (
-	testFTPUser = "bkp"
-	testFTPPass = "pa55-w0rd-s3cret"
+	User     = "bkp"
+	Password = "pa55-w0rd-s3cret"
 )
 
-// newFTPServer starts a server with root t.TempDir() for user testFTPUser
-// with password testFTPPass, stopped at the end of the test.
-func newFTPServer(t *testing.T, faults ftpFaults) *ftpServer {
+// New starts a Server with root t.TempDir(), stopped at the end of the
+// test.
+func New(t testing.TB, faults Faults) *Server {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &ftpServer{
-		root: t.TempDir(), user: testFTPUser, pass: testFTPPass, faults: faults,
-		ln: ln, done: make(chan struct{}), conns: map[net.Conn]struct{}{},
+	s := &Server{
+		Root: t.TempDir(), faults: faults,
+		ln: ln, done: make(chan struct{}), created: make(chan struct{}), conns: map[net.Conn]struct{}{},
 	}
 	s.wg.Go(s.accept)
-	t.Cleanup(s.stop)
+	t.Cleanup(s.Stop)
 	return s
 }
 
-// port is the port the server listens on.
-func (s *ftpServer) port() int { return s.ln.Addr().(*net.TCPAddr).Port }
+// Created is closed once a STOR has created its file.
+func (s *Server) Created() <-chan struct{} { return s.created }
 
-// stop closes every connection and waits for the sessions. It may be
+// Port is the port the server listens on.
+func (s *Server) Port() int { return s.ln.Addr().(*net.TCPAddr).Port }
+
+// Stop closes every connection and waits for the sessions. It may be
 // called more than once.
-func (s *ftpServer) stop() {
+func (s *Server) Stop() {
 	s.stopOnce.Do(func() {
 		close(s.done)
 		s.ln.Close() //nolint:errcheck,gosec // test server shutdown
@@ -91,7 +108,7 @@ func (s *ftpServer) stop() {
 	s.wg.Wait()
 }
 
-func (s *ftpServer) accept() {
+func (s *Server) accept() {
 	for {
 		c, err := s.ln.Accept()
 		if err != nil {
@@ -109,7 +126,7 @@ func (s *ftpServer) accept() {
 
 // track registers c, control or data connection, to be closed by stop. It
 // closes c and returns false when the server is stopped already.
-func (s *ftpServer) track(c net.Conn) bool {
+func (s *Server) track(c net.Conn) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	select {
@@ -123,7 +140,7 @@ func (s *ftpServer) track(c net.Conn) bool {
 }
 
 // untrack closes c and forgets it.
-func (s *ftpServer) untrack(c net.Conn) {
+func (s *Server) untrack(c net.Conn) {
 	s.mu.Lock()
 	delete(s.conns, c)
 	s.mu.Unlock()
@@ -132,7 +149,7 @@ func (s *ftpServer) untrack(c net.Conn) {
 
 // session is the state of one control connection.
 type session struct {
-	s      *ftpServer
+	s      *Server
 	c      net.Conn
 	cwd    string // slash-separated, from the root
 	user   string
@@ -141,8 +158,8 @@ type session struct {
 	rnfr   string
 }
 
-func (s *ftpServer) serve(c net.Conn) {
-	if s.faults.silent {
+func (s *Server) serve(c net.Conn) {
+	if s.faults.Silent {
 		<-s.done
 		return
 	}
@@ -155,7 +172,7 @@ func (s *ftpServer) serve(c net.Conn) {
 		if err != nil {
 			return
 		}
-		if s.faults.mute && ss.logged {
+		if s.faults.Mute && ss.logged {
 			<-s.done
 			return
 		}
@@ -177,7 +194,7 @@ func (ss *session) local(name string) (string, string) {
 	if strings.HasPrefix(name, "/") {
 		p = path.Clean(name)
 	}
-	return p, filepath.Join(ss.s.root, filepath.FromSlash(p))
+	return p, filepath.Join(ss.s.Root, filepath.FromSlash(p))
 }
 
 // handle runs one command and reports whether the session goes on.
@@ -189,10 +206,10 @@ func (ss *session) handle(cmd, arg string) bool {
 		return true
 	case "PASS":
 		switch {
-		case ss.user == ss.s.user && arg == ss.s.pass:
+		case ss.user == User && arg == Password:
 			ss.logged = true
 			ss.reply("230 logged in")
-		case ss.s.faults.echoPass:
+		case ss.s.faults.EchoPass:
 			ss.reply("530 wrong password %s for %s", arg, ss.user)
 		default:
 			ss.reply("530 login incorrect")
@@ -209,7 +226,7 @@ func (ss *session) handle(cmd, arg string) bool {
 	switch cmd {
 	case "FEAT":
 		mlst := " MLST type*;size*;\r\n"
-		if ss.s.faults.noMLSD {
+		if ss.s.faults.NoMLSD {
 			mlst = ""
 		}
 		ss.reply("211-features:\r\n EPSV\r\n UTF8\r\n%s211 end", mlst)
@@ -248,6 +265,10 @@ func (ss *session) handle(cmd, arg string) bool {
 	case "RETR":
 		ss.retr(arg)
 	case "DELE":
+		if ss.s.faults.NoDelete {
+			ss.reply("550 permission denied")
+			return true
+		}
 		_, l := ss.local(arg)
 		if fi, err := os.Stat(l); err != nil || !fi.Mode().IsRegular() {
 			ss.reply("550 no such file")
@@ -258,6 +279,14 @@ func (ss *session) handle(cmd, arg string) bool {
 			return true
 		}
 		ss.reply("250 deleted")
+	case "SIZE":
+		_, l := ss.local(arg)
+		fi, err := os.Stat(l)
+		if err != nil || !fi.Mode().IsRegular() {
+			ss.reply("550 no such file")
+			return true
+		}
+		ss.reply("213 %d", fi.Size())
 	case "RNFR":
 		_, l := ss.local(arg)
 		if _, err := os.Stat(l); err != nil {
@@ -274,7 +303,11 @@ func (ss *session) handle(cmd, arg string) bool {
 			ss.reply("503 RNFR first")
 			return true
 		}
-		if _, err := os.Stat(to); err == nil && ss.s.faults.noOverwrite {
+		if ss.s.faults.NoRename {
+			ss.reply("553 rename refused")
+			return true
+		}
+		if _, err := os.Stat(to); err == nil && ss.s.faults.NoOverwrite {
 			ss.reply("553 file exists")
 			return true
 		}
@@ -364,14 +397,15 @@ func (ss *session) stor(name string) {
 		return
 	}
 	defer f.Close() //nolint:errcheck // closed again on the normal path
+	ss.s.createdOnce.Do(func() { close(ss.s.created) })
 	ss.reply("150 send it")
 	switch faults := ss.s.faults; {
-	case faults.stallAfter > 0:
-		io.CopyN(f, dc, faults.stallAfter) //nolint:errcheck,gosec // whatever came before the stall
+	case faults.StallAfter > 0:
+		io.CopyN(f, dc, faults.StallAfter) //nolint:errcheck,gosec // whatever came before the stall
 		<-ss.s.done
 		return
-	case faults.abortAfter > 0:
-		io.CopyN(f, dc, faults.abortAfter) //nolint:errcheck,gosec // whatever came before the abort
+	case faults.AbortAfter > 0:
+		io.CopyN(f, dc, faults.AbortAfter) //nolint:errcheck,gosec // whatever came before the abort
 		ss.s.untrack(dc)                   // the abort itself
 		f.Close()                          //nolint:errcheck,gosec // the partial file stays
 		ss.reply("426 connection closed; transfer aborted")
@@ -403,6 +437,12 @@ func (ss *session) retr(name string) {
 		return
 	}
 	ss.reply("150 here it comes")
+	if n := ss.s.faults.TruncateAfter; n > 0 {
+		io.CopyN(dc, f, n) //nolint:errcheck,gosec // whatever goes before the break
+		ss.s.untrack(dc)
+		ss.reply("426 connection closed; transfer aborted")
+		return
+	}
 	_, err = io.Copy(dc, f)
 	ss.s.untrack(dc) // end of the file for the client
 	if err != nil {
@@ -412,8 +452,9 @@ func (ss *session) retr(name string) {
 	ss.reply("226 sent")
 }
 
-// config returns the YAML of an ftp dst section for s with path.
-func (s *ftpServer) config(path string) string {
-	return "hostname: 127.0.0.1\nport: " + strconv.Itoa(s.port()) + "\nusername: " + s.user +
-		"\npassword: " + s.pass + "\npath: '" + path + "'\nplan: {d: 7}\nprefix: www\n"
+// Attrs returns the attributes of an ftp dst section for s with path, as
+// the inside of a YAML flow mapping.
+func (s *Server) Attrs(path string) string {
+	return "hostname: 127.0.0.1, port: " + strconv.Itoa(s.Port()) + ", username: " + User +
+		", password: " + Password + ", path: '" + path + "'"
 }

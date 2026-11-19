@@ -220,7 +220,22 @@ password, which protects nothing.
 
 Raku drives the `ncftp` tools. Here FTP is built in: the host needs no
 `ncftp`, the password stays out of argv, and connections and stalled
-transfers time out instead of hanging.
+transfers time out instead of hanging: a connection must be set up within
+30 seconds, and a read or write that makes no progress for 5 minutes fails
+the attempt. A transfer as a whole has no time limit. A password the server
+repeats in a reply shows as `***` in errors.
+
+- The archive is uploaded to `.<archive>.partial` and renamed, as for
+  every destination (see "Send first, rotate after"); Raku's `ncftpput`
+  writes the archive under its name. A server that does not rename onto an
+  existing file has that file deleted just before the rename. Should the
+  rename fail after that, the attempt fails and `.<archive>.partial` is
+  kept, as the only archive of the day.
+- Deleting an archive in rotation that the server refuses is reported as
+  for `local`; one that is gone already counts as deleted. Raku ignores
+  what `ncftp` says.
+- The listing skips directories and takes names with spaces whole. Raku
+  splits `ls -la` at spaces, so it lists directories and cuts such names.
 
 - An empty `username`, a `port` outside 1-65535 and a line break in
   `hostname`, `username`, `password` or `path` are load errors. Raku passes

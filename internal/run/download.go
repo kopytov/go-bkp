@@ -102,7 +102,14 @@ func (d Download) copy(ctx context.Context, p config.Profile, filename string, s
 	if err != nil {
 		return fmt.Errorf("dst: %w", err)
 	}
-	defer in.Close() //nolint:errcheck // read only; a failed read is reported by the copy
+	defer func() {
+		// The file is in place by now: a reader must report a broken
+		// transfer from Read, as the ftp one does. A failure here still
+		// fails the download.
+		if cerr := in.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("dst: %w", cerr)
+		}
+	}()
 	src := ctxReader{ctx: ctx, r: in}
 	if filename == "-" {
 		if _, err := io.Copy(stdout, src); err != nil {

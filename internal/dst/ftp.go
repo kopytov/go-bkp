@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"math"
 	"net"
 	"net/textproto"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +26,9 @@ const (
 	// ftpIdleTimeout bounds a read or write on a connection that makes no
 	// progress: a server that stopped answering or taking data.
 	ftpIdleTimeout = 5 * time.Minute
+	// ftpCleanupTimeout bounds deleting the temporary file of a failed
+	// upload, which goes on after a signal.
+	ftpCleanupTimeout = time.Minute
 )
 
 // Ftp is dst class ftp: archives in a directory of an FTP server. Each
@@ -102,6 +108,219 @@ func (f *Ftp) Mount(ctx context.Context) error {
 // Umount implements config.Dest: no connection outlives an operation, so
 // there is nothing to release.
 func (*Ftp) Umount(context.Context) error { return nil }
+
+// List implements config.Dest: the files in path, without directories.
+func (f *Ftp) List(ctx context.Context) ([]config.Entry, error) {
+	c, err := f.connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer f.quit(c)
+	es, err := c.List("")
+	if err != nil {
+		return nil, f.fail(ctx, "list ftp://"+f.addr(), err)
+	}
+	out := make([]config.Entry, 0, len(es))
+	for _, e := range es {
+		if e.Type == ftp.EntryTypeFolder || e.Name == "." || e.Name == ".." {
+			continue
+		}
+		out = append(out, config.Entry{Name: e.Name, Size: int64(min(e.Size, math.MaxInt64))})
+	}
+	slices.SortFunc(out, func(a, b config.Entry) int { return strings.Compare(a.Name, b.Name) })
+	return out, nil
+}
+
+// Delete implements config.Dest. A file that is not there counts as
+// deleted, as with local.
+func (f *Ftp) Delete(ctx context.Context, name string) error {
+	if err := checkBase(name); err != nil {
+		return err
+	}
+	c, err := f.connect(ctx)
+	if err != nil {
+		return err
+	}
+	defer f.quit(c)
+	if err := c.Delete(name); err != nil && !gone(c, name) {
+		return f.fail(ctx, "delete "+name, err)
+	}
+	return nil
+}
+
+// gone reports whether the server says by SIZE that name is not there, to
+// tell a refused DELE of a file gone already from one of a file that stays.
+// A server without SIZE leaves it unknown, taken as there.
+func gone(c *ftp.ServerConn, name string) bool {
+	var reply *textproto.Error
+	_, err := c.FileSize(name)
+	return errors.As(err, &reply) && reply.Code == ftp.StatusFileUnavailable
+}
+
+// Open implements config.Dest. Closing the reader ends the session.
+func (f *Ftp) Open(ctx context.Context, name string) (io.ReadCloser, error) {
+	if err := checkBase(name); err != nil {
+		return nil, err
+	}
+	c, err := f.connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	r, err := c.Retr(name)
+	if err != nil {
+		f.quit(c)
+		return nil, f.fail(ctx, "download "+name, err)
+	}
+	return &ftpReader{ctx: ctx, f: f, c: c, r: r, name: name}, nil
+}
+
+// ftpReader reads a file being downloaded.
+type ftpReader struct {
+	ctx  context.Context //nolint:containedctx // the context of Open, for the errors of its reads
+	f    *Ftp
+	c    *ftp.ServerConn
+	r    *ftp.Response
+	name string
+}
+
+// Read reads the file. At the end of the data it reads the server's reply
+// to the transfer, as only that tells a complete file from one the server
+// broke off, and returns its refusal instead of io.EOF.
+func (r *ftpReader) Read(p []byte) (int, error) {
+	n, err := r.r.Read(p)
+	switch {
+	case errors.Is(err, io.EOF):
+		if cerr := r.r.Close(); cerr != nil {
+			return n, r.f.fail(r.ctx, "download "+r.name, cerr)
+		}
+	case err != nil:
+		err = r.f.fail(r.ctx, "download "+r.name, err)
+	}
+	return n, err
+}
+
+// Close reads the server's reply to the transfer and ends the session.
+func (r *ftpReader) Close() error {
+	err := r.r.Close()
+	r.f.quit(r.c)
+	if err != nil {
+		return r.f.fail(r.ctx, "download "+r.name, err)
+	}
+	return nil
+}
+
+// Write implements config.Dest. The archive is uploaded to
+// .<name>.partial while send runs, through a pipe, and renamed to name once
+// send and the upload succeeded. A server that does not rename onto an
+// existing file gets that file deleted just before. On a failure
+// .<name>.partial is deleted over a new connection, as the one of the
+// upload may be broken; a failure to do so comes after the error of the
+// attempt. It is kept when the rename failed after the archive under name
+// was deleted for it, as the only archive left.
+func (f *Ftp) Write(ctx context.Context, name string, send func(out *os.File) error) (err error) {
+	if err := checkBase(name); err != nil {
+		return err
+	}
+	tmp := "." + name + ".partial"
+	// Cancelled when send fails, to break off the upload at once.
+	uctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	c, err := f.connect(uctx)
+	if err != nil {
+		return err
+	}
+	defer f.quit(c)
+	// Set once today's earlier archive is deleted to rename onto its
+	// name: the temporary file is the only archive of the day then.
+	keep := false
+	defer func() {
+		if err != nil && !keep {
+			err = errors.Join(err, f.removePartial(ctx, tmp))
+		}
+	}()
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return fmt.Errorf("pipe: %w", err)
+	}
+	stored := make(chan error, 1)
+	go func() {
+		// The result goes first: the stages see EPIPE below, and the
+		// result must be there once send returns for it.
+		stored <- c.Stor(tmp, pr)
+		// Should the upload stop early, the stages get EPIPE instead of
+		// waiting for a reader that is gone.
+		pr.Close() //nolint:errcheck,gosec // read end, nothing to flush
+	}()
+	sendErr := send(pw)
+	// While pw is open the upload cannot have seen the end of the data:
+	// if it is over already, it failed, and that is why send failed.
+	var storErr error
+	storFirst := false
+	select {
+	case storErr = <-stored:
+		storFirst = true
+	default:
+	}
+	if err := pw.Close(); err != nil && sendErr == nil {
+		sendErr = fmt.Errorf("close pipe: %w", err)
+	}
+	if !storFirst {
+		if sendErr != nil {
+			cancel()
+		}
+		storErr = <-stored
+	}
+	switch {
+	case storFirst:
+		return errors.Join(f.fail(ctx, "upload "+tmp, storErr), sendErr)
+	case sendErr != nil:
+		return sendErr
+	case storErr != nil:
+		return f.fail(ctx, "upload "+tmp, storErr)
+	}
+	deleted, err := rename(c, tmp, name)
+	if err != nil {
+		if deleted {
+			keep = true
+			err = fmt.Errorf("%w; %s was deleted to rename onto it, %s is kept", err, name, tmp)
+		}
+		return f.fail(ctx, "rename "+tmp+" to "+name, err)
+	}
+	return nil
+}
+
+// rename renames from to to. When the server refuses, to is deleted and the
+// rename tried again, for a server that does not rename onto an existing
+// file; deleted reports that. When to cannot be deleted, such as when it is
+// not there, the first refusal is the error.
+func rename(c *ftp.ServerConn, from, to string) (deleted bool, err error) {
+	err = c.Rename(from, to)
+	var reply *textproto.Error
+	if err == nil || !errors.As(err, &reply) || reply.Code/100 != 5 {
+		return false, err
+	}
+	if c.Delete(to) != nil {
+		return false, err
+	}
+	return true, c.Rename(from, to)
+}
+
+// removePartial deletes tmp over a new connection, within
+// ftpCleanupTimeout even when ctx is done. A file the server says is not
+// there, as one the failed upload never created, is no error.
+func (f *Ftp) removePartial(ctx context.Context, tmp string) error {
+	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), ftpCleanupTimeout)
+	defer cancel()
+	c, err := f.connect(cctx)
+	if err != nil {
+		return fmt.Errorf("remove %s: %w", tmp, err)
+	}
+	defer f.quit(c)
+	if err := c.Delete(tmp); err != nil && !gone(c, tmp) {
+		return f.fail(cctx, "remove "+tmp, err)
+	}
+	return nil
+}
 
 // addr is the host and port of the server.
 func (f *Ftp) addr() string {
