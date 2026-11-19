@@ -284,3 +284,50 @@ func processAlive(pid int) bool {
 	i := bytes.LastIndexByte(data, ')')
 	return i >= 0 && i+2 < len(data) && data[i+2] != 'Z'
 }
+
+func TestUsageError(t *testing.T) {
+	t.Parallel()
+	res := runBkp(t, bkp(t, "list", "a.yml", "b.yml"))
+	if res.code != 2 || res.stderr != "bkp: list takes <config>\n"+usage || res.stdout != "" {
+		t.Errorf("bkp list with two configs: %+v", res)
+	}
+}
+
+func TestHelp(t *testing.T) {
+	t.Parallel()
+	res := runBkp(t, bkp(t, "--help"))
+	if res.code != 0 || res.stdout != usage || res.stderr != "" {
+		t.Errorf("bkp --help: %+v", res)
+	}
+}
+
+func TestVersion(t *testing.T) {
+	t.Parallel()
+	res := runBkp(t, bkp(t, "--version"))
+	if res.code != 0 || res.stdout != "dev\n" || res.stderr != "" {
+		t.Errorf("bkp --version: %+v", res)
+	}
+}
+
+func TestListProfiles(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	multi := writeConfig(t, dir, "multi.yml", fmt.Sprintf(
+		"src:\n  www: {class: cmd, cmd: [printf, w], suffix: txt}\n  db: {class: cmd, cmd: [printf, d], suffix: txt}\n"+
+			"dst: {class: local, dir: %s, plan: {d: 3}}\n", dir))
+	single := writeConfig(t, dir, "single.yml", cmdConfig("printf s", dir, ""))
+	for _, tt := range []struct{ config, want string }{
+		{multi, "db\nwww\n"},
+		{single, "single\n"},
+	} {
+		res := runBkp(t, bkp(t, "list-profiles", tt.config))
+		if res.code != 0 || res.stdout != tt.want || res.stderr != "" {
+			t.Errorf("bkp list-profiles %s: %+v", tt.config, res)
+		}
+	}
+
+	res := runBkp(t, bkp(t, "list-profiles", filepath.Join(dir, "missing.yml")))
+	if res.code != 1 || res.stdout != "" || !strings.Contains(res.stderr, "missing.yml: no such file") {
+		t.Errorf("bkp list-profiles of a missing config: %+v", res)
+	}
+}

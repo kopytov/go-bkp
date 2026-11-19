@@ -227,5 +227,16 @@ transfers time out instead of hanging.
 - `bkp` without arguments prints the usage to stderr and exits 2; Raku exits
   0 silently. A first argument that is not a subcommand is a config path, as
   in Raku.
+- A subcommand with the wrong number of arguments, such as `bkp list` or
+  `bkp list a.yml b.yml`, is a usage error with exit status 2. Raku finds no
+  `MAIN` for it but the backup one and backs up configs named `list`,
+  `a.yml` and `b.yml`.
+- An option the subcommand does not take, such as `bkp --bytes a.yml`, is a
+  usage error with exit status 2, as in Raku, which prints its usage then.
+- Named options may stand anywhere, after positional arguments too, and
+  take their value as `--opt value` as well as `--opt=value`. Rakudo's
+  `MAIN` by default takes options only before the first positional argument
+  and values only as `--opt=value`: `bkp list a.yml --bytes` backs up
+  configs `list`, `a.yml` and `--bytes`.
 - `bkp list-profiles` prints profile names sorted.
 - `bkp --version` is new.
