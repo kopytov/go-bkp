@@ -11,9 +11,8 @@ src -> [compress] -> [crypt] -> [shape] -> dst
 ```
 
 Each stage is an external tool: `tar`, `mysqldump`, `gzip`, `openssl`,
-`pv`. Only the tools your configs use must be installed. FTP is built in.
-`bash` runs `src.script` and `post`. `local` with `mount` needs
-`mountpoint`, `mount` and `umount`.
+`pv`. Only the tools your configs use must be installed, see
+[Install](#install). FTP is built in.
 
 Configs hold passwords and keys: make them readable by root only (`0600`).
 
@@ -22,6 +21,40 @@ Run it from cron or a systemd timer with a list of configs:
 ```sh
 bkp /usr/local/etc/bkp/*.yaml
 ```
+
+## Install
+
+`bkp` is one static binary for Linux on `amd64` or `arm64`. Download the
+binary for your architecture and `SHA256SUMS` from the
+[latest release](https://github.com/kopytov/go-bkp/releases/latest), check
+the hash and put the binary in `/usr/local/bin`:
+
+```sh
+arch=amd64    # or arm64
+base=https://github.com/kopytov/go-bkp/releases/latest/download
+curl -fLO "$base/bkp-linux-$arch" -fLO "$base/SHA256SUMS"
+sha256sum -c --ignore-missing SHA256SUMS
+sudo install -m 0755 "bkp-linux-$arch" /usr/local/bin/bkp
+bkp --version
+```
+
+Then install the tools the classes in your configs run:
+
+| Class or feature           | Tool         |
+|----------------------------|--------------|
+| `src` `tar`                | GNU `tar`    |
+| `src` `mysql`              | `mysqldump`  |
+| `compress` `gzip`          | `gzip`       |
+| `compress` `pigz`          | `pigz`       |
+| `crypt` `openssl`          | `openssl`    |
+| `shape` `pv`               | `pv`         |
+| `src.script`, `post`       | `bash`       |
+| `dst` `local` with `mount` | `mountpoint` |
+| `mount` without `cmd`      | `mount`      |
+| `mount.umount: true`       | `umount`     |
+
+`src` `redis` and `dst` `ftp` need no tools. `src` `cmd` needs the command
+it names.
 
 ## Example
 
