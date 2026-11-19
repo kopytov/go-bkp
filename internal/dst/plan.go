@@ -54,6 +54,8 @@ type Namer struct {
 	// Suffix is the full suffix of new archives, such as "tar.gz.enc".
 	Suffix string
 	Plan   Plan
+	// NoRotate leaves rotation to someone else: Rotate deletes nothing.
+	NoRotate bool
 }
 
 type archive struct {
@@ -199,11 +201,14 @@ func (n Namer) Replaced(names []string, written string) ([]string, error) {
 // down to its count once written is in place, oldest first. written counts
 // as present even if names lacks it and is never returned; the archives it
 // replaces are left to Replaced and not counted. Archives of a period not in
-// the plan are kept.
+// the plan are kept, and with NoRotate all of them.
 func (n Namer) Rotate(names []string, written string) ([]string, error) {
 	w, _, rest, err := n.split(names, written)
 	if err != nil {
 		return nil, err
+	}
+	if n.NoRotate {
+		return nil, nil
 	}
 	count := map[string]int{w.period: 1}
 	for _, a := range rest {

@@ -187,6 +187,22 @@ func TestRotate(t *testing.T) {
 	}
 }
 
+func TestRotateNoRotate(t *testing.T) {
+	t.Parallel()
+	n := Namer{Prefix: prefix, Suffix: suffix, Plan: Plan{D: 1}, NoRotate: true}
+	names := []string{"mysql-2026-11-16-d.sql.gz", "mysql-2026-11-17-d.sql.gz"}
+	got, err := n.Rotate(names, "mysql-2026-11-18-d.sql.gz")
+	if err != nil {
+		t.Fatalf("Rotate: %v", err)
+	}
+	if got != nil {
+		t.Errorf("Rotate = %q, want nothing", got)
+	}
+	if _, err := n.Rotate(nil, "mysql-wp-2026-11-18-d.sql.gz"); err == nil {
+		t.Error("Rotate accepted a foreign name with NoRotate")
+	}
+}
+
 func TestReplaced(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,6 +42,13 @@ func (f *fakeDst) Prefix() string {
 	p, _ := f.attrs["prefix"].(string)
 	return p
 }
+
+func (*fakeDst) Naming(string) Naming                                      { return nil }
+func (*fakeDst) Mount(context.Context) error                               { return nil }
+func (*fakeDst) Umount(context.Context) error                              { return nil }
+func (*fakeDst) List(context.Context) ([]Entry, error)                     { return nil, nil }
+func (*fakeDst) Delete(context.Context, string) error                      { return nil }
+func (*fakeDst) Write(context.Context, string, func(*os.File) error) error { return nil }
 
 func newFake(class string, n *yaml.Node) (fake, error) {
 	f := fake{class: class}

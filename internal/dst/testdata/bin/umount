@@ -1,0 +1,9 @@
+#!/bin/sh
+# Fake umount <point>: marks the point not mounted, or fails with
+# $FAKE_UMOUNT_FAIL set.
+echo "umount $*" >>"$FAKE_TOOLS_LOG"
+if [ -n "$FAKE_UMOUNT_FAIL" ]; then
+    echo "umount: $1: target is busy." >&2
+    exit 32
+fi
+rm "$1/.mounted"

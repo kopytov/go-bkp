@@ -1,10 +1,13 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 
@@ -34,10 +37,46 @@ type Filter interface {
 }
 
 // Dest is a dst class: where the archives of a profile are written and
-// rotated.
+// rotated. Names passed to it are base names inside the destination; one
+// that is not is refused.
 type Dest interface {
 	// Prefix starts the names of the profile's archives.
 	Prefix() string
+	// Naming returns how the profile's archives with suffix are named and
+	// rotated, by the destination's plan and no-rotate.
+	Naming(suffix string) Naming
+	// Mount makes the destination ready to use, such as by mounting it.
+	Mount(ctx context.Context) error
+	// Umount releases what Mount set up, if the config asks for it.
+	Umount(ctx context.Context) error
+	// List returns the files in the destination, sorted by name.
+	List(ctx context.Context) ([]Entry, error)
+	// Delete deletes the file name.
+	Delete(ctx context.Context, name string) error
+	// Write stores the archive name. It calls send with the file to write
+	// the archive to, and send returns once the data is written or failed.
+	// The archive appears under name only when send succeeds; otherwise
+	// nothing is left behind.
+	Write(ctx context.Context, name string, send func(out *os.File) error) error
+}
+
+// Entry is a file in a destination.
+type Entry struct {
+	Name string
+	Size int64
+}
+
+// Naming names the archives of a profile and picks those to delete. It
+// works on file names only.
+type Naming interface {
+	// Next returns the name of the archive to write on the date of today.
+	Next(names []string, today time.Time) (string, error)
+	// Replaced returns the archives that written replaces, to delete once
+	// written is in place.
+	Replaced(names []string, written string) ([]string, error)
+	// Rotate returns the archives to delete by the plan once written is in
+	// place; none with no-rotate.
+	Rotate(names []string, written string) ([]string, error)
 }
 
 // Table maps the class names of one namespace, in lower case, to their
@@ -107,6 +146,17 @@ func AsSource[C Source](ctor func(*yaml.Node) (C, error)) func(*yaml.Node) (Sour
 // class to a Table entry.
 func AsFilter[C Filter](ctor func(*yaml.Node) (C, error)) func(*yaml.Node) (Filter, error) {
 	return func(n *yaml.Node) (Filter, error) {
+		c, err := ctor(n)
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
+	}
+}
+
+// AsDest adapts the constructor of a concrete dst class to a Table entry.
+func AsDest[C Dest](ctor func(*yaml.Node) (C, error)) func(*yaml.Node) (Dest, error) {
+	return func(n *yaml.Node) (Dest, error) {
 		c, err := ctor(n)
 		if err != nil {
 			return nil, err

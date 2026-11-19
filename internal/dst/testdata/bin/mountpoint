@@ -1,0 +1,6 @@
+#!/bin/sh
+# Fake mountpoint -q: a point is mounted when it holds .mounted. Each call
+# is logged to $FAKE_TOOLS_LOG.
+echo "mountpoint $*" >>"$FAKE_TOOLS_LOG"
+[ "$1" = -q ] && shift
+[ -e "$1/.mounted" ]

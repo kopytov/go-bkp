@@ -85,6 +85,11 @@ exits; if it holds the script's output open, the load fails.
   silently replaces it with each source's name, so the value written in the
   config has no effect. With one source it still overrides the file name.
 - A key given twice in one mapping is a load error; Raku keeps the last one.
+- `dst.dir` and `dst.plan` of class `local` are required, and `dst.mount`
+  with `cmd` or `umount` needs `point`; each is a load error. Raku finds
+  them missing when it builds the destination for the first attempt, outside
+  the attempt's error handling, so the whole run stops there. An empty
+  `mount` is ignored, as in Raku.
 - `files: []` of `tar` and `dbs: []` of `mysql` are load errors. Raku runs
   `tar` without files, which fails, and `mysqldump` without databases,
   which dumps nothing useful. Leaving `dbs` out still dumps all databases.
