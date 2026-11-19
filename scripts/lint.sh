@@ -14,13 +14,14 @@ else
     mapfile -d '' -t listed < <({ git diff -z --name-only HEAD; git ls-files -z -o --exclude-standard; } | sort -zu)
 fi
 
-md=() sh=() golang=0 mdall=0
+md=() sh=() wf=() golang=0 mdall=0
 for f in "${listed[@]}"; do
     case $f in
         *.go | go.mod | go.sum | .golangci.yml) golang=1 ;;
         .markdownlint-cli2.yaml) mdall=1 ;;
         *.md) [[ -f $f ]] && md+=("$f") ;;
         *.sh) [[ -f $f ]] && sh+=("$f") ;;
+        .github/workflows/*.yml | .github/workflows/*.yaml) [[ -f $f ]] && wf+=("$f") ;;
     esac
 done
 (( mdall )) && mapfile -d '' -t md < <(git ls-files -z -co --exclude-standard -- '*.md')
@@ -50,5 +51,6 @@ run() {
 (( golang )) && run golangci-lint golangci-lint run ./...
 (( ${#md[@]} )) && run markdownlint markdownlint-cli2 "${md[@]}"
 (( ${#sh[@]} )) && run shellcheck shellcheck -x -f gcc "${sh[@]}"
+(( ${#wf[@]} )) && run actionlint actionlint "${wf[@]}"
 (( ran )) || echo "nothing to lint"
 exit "$failed"
