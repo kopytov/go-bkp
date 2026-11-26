@@ -151,26 +151,19 @@ a task that makes a new one adds it there.
 
 ## Workflow
 
-The operator does not write Go and relies on the reviews below more than on
-reading the diff, so the review steps are never skipped.
+The operator does not write Go. They rely on the reviews more than on the
+diff, so never skip the review steps.
 
-1. Gather what you need from this repo and `../raku-bkp`, ask about anything
-   unclear, and show the plan broken into steps. A step is one self-contained
-   commit: it builds, its tests pass, and it can be reverted on its own. Start
-   editing only once the plan is confirmed.
-2. Execute one step at a time. Leave changes unstaged in the working tree.
-3. Run `scripts/test.sh` and `scripts/lint.sh`; fix what they turn up.
+1. Gather what you need from this repo and `../raku-bkp`.
+2. A step builds and its tests pass.
+3. Run `scripts/test.sh` and `scripts/lint.sh`. Fix what they find.
 4. Launch `go-reviewer` and `convention-guard` in parallel. Fix every
-   blocking and should-fix finding, then run step 3 again. A finding you
-   disagree with goes to the operator with your reason, not silently dropped.
-5. Present the step: `git diff --stat`, what changed and why, the reviewers'
-   verdict (what was fixed, what nitpicks remain), and one line for each Go
-   idiom in the diff that a Perl or Raku reader would not recognise. Then
-   wait. Corrections from the review go into the working tree, still
-   unstaged.
-6. Once the operator confirms the step, commit it and move to the next. Keep
-   commit messages terse — for a small change a subject line alone is enough.
-7. Push only when the operator asks.
+   blocking and should-fix finding, then run step 3 again. If you disagree
+   with a finding, give the operator your reason. Never drop it silently.
+5. When you present a step, show `git diff --stat` instead of the full diff.
+   Add the reviewers' verdict: what was fixed, what nitpicks remain. Add one
+   line for each Go idiom in the diff that a Perl or Raku reader would not
+   recognise.
 
 ## Review
 
@@ -198,7 +191,5 @@ Hand these to a subagent without asking, and take back only its report:
 - `Explore` — locating something in this repo or in `../raku-bkp` when the
   path is not known.
 
-A subagent starts with no context of the task: give it the packages or files,
-what the step is meant to do, and the Raku module it ports — never a pronoun
-back into this conversation. Edits, planning, the review conversation and
-commits stay in the main session.
+Give a subagent the packages or files, what the step should do, and the Raku
+module it ports.
